@@ -8,6 +8,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 
 from .config import load_settings
 from .db import Base, build_engine, build_session_factory, utcnow
@@ -49,14 +50,26 @@ def create_app(
         app_name=app_name,
         display_timezone=display_timezone,
     )
-    engine = build_engine(settings.database_url)
-    SessionLocal = build_session_factory(engine)
-    Base.metadata.create_all(engine)
+    engine = None
+    SessionLocal = None
+    db_error = None
+
+    if settings.database_url:
+        try:
+            engine = build_engine(settings.database_url)
+            SessionLocal = build_session_factory(engine)
+            Base.metadata.create_all(engine)
+        except Exception as exc:
+            db_error = str(exc)
 
     templates = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] / "templates"))
     app = FastAPI(title=settings.app_name)
+    app.state.db_error = db_error
 
     def get_session():
+        if SessionLocal is None:
+            yield None
+            return
         session = SessionLocal()
         try:
             yield session
@@ -64,9 +77,14 @@ def create_app(
             session.close()
 
     def build_page_context(request: Request, session, title: str, description: str, active_page: str, **extra):
-        current = current_card(session, timezone_name=settings.display_timezone)
-        recent = recent_events(session, limit=settings.home_recent_limit, timezone_name=settings.display_timezone)
-        stats = stats_summary(session, timezone_name=settings.display_timezone)
+        if session is None:
+            current = None
+            recent = []
+            stats = {"total_scrobbles": 0, "last_updated": "No activity yet", "top_artist": "No artist yet"}
+        else:
+            current = current_card(session, timezone_name=settings.display_timezone)
+            recent = recent_events(session, limit=settings.home_recent_limit, timezone_name=settings.display_timezone)
+            stats = stats_summary(session, timezone_name=settings.display_timezone)
         return {
             "request": request,
             "title": title,
@@ -78,6 +96,7 @@ def create_app(
             "recent_tracks": recent,
             "stats": stats,
             "display_timezone": settings.display_timezone,
+            "db_error": app.state.db_error,
             **extra,
         }
 
@@ -134,6 +153,8 @@ def create_app(
 
     @app.get("/api/recent")
     def api_recent(limit: int = Query(default=settings.api_recent_limit, ge=1, le=20), session=Depends(get_session)):
+        if session is None:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database is not configured.")
         total_events = session.scalar(select(func.count()).select_from(ListeningEvent)) or 0
         return JSONResponse(
             {
@@ -146,11 +167,15 @@ def create_app(
 
     @app.get("/api/now-playing")
     def api_now_playing(session=Depends(get_session)):
+        if session is None:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database is not configured.")
         card = current_card(session, timezone_name=settings.display_timezone)
         return JSONResponse({"ok": True, "item": card})
 
     @app.get("/api/status")
     def api_status(session=Depends(get_session)):
+        if session is None:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database is not configured.")
         payload = {
             "ok": True,
             "app_name": settings.app_name,
@@ -165,6 +190,8 @@ def create_app(
     @app.post("/api/webhook")
     @app.post("/api/webhook/{path_token}")
     async def webhook(request: Request, path_token: str | None = None, session=Depends(get_session)):
+        if SessionLocal is None:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database is not configured.")
         token = _resolve_token(request, path_token=path_token)
         if not secrets.compare_digest(token or "", settings.webhook_secret):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid webhook token.")

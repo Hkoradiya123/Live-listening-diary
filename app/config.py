@@ -34,9 +34,6 @@ def load_settings(
     resolved_app_name = app_name or os.getenv("APP_NAME") or "Live listening diary"
     resolved_timezone = display_timezone or os.getenv("DISPLAY_TIMEZONE") or "UTC"
 
-    if not resolved_database_url:
-        raise RuntimeError("DATABASE_URL is required when running on Vercel.")
-
     return Settings(
         app_name=resolved_app_name,
         database_url=resolved_database_url,
