@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="hero">
+    <span class="eyebrow">Webhook and API status</span>
+    <h1>Integration</h1>
+    <p>
+      Use this page to wire Web Scrobbler into Live listening diary. The endpoint is intentionally lightweight so the webhook
+      can return quickly and keep the dashboard live without background jobs or filesystem storage.
+    </p>
+    <div class="hero-meta">
+      <span class="pill pill--live">POST /api/webhook</span>
+      <span class="pill pill--muted">Protected by secret token</span>
+      <span class="pill pill--muted">JSON ingest + PostgreSQL</span>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="doc-grid">
+      <article class="doc-card">
+        <h3>Webhook Endpoint</h3>
+        <p>Send a JSON POST request to <strong>/api/webhook</strong> with one of these auth methods:</p>
+        <ul>
+          <li><code>X-Recently-Played-Token: &lt;WEBHOOK_SECRET&gt;</code></li>
+          <li><code>Authorization: Bearer &lt;WEBHOOK_SECRET&gt;</code></li>
+          <li><code>POST /api/webhook/&lt;WEBHOOK_SECRET&gt;</code></li>
+        </ul>
+        <p>Supported event types: nowplaying, paused, resumedplaying, scrobble, loved.</p>
+      </article>
+
+      <article class="doc-card">
+        <h3>API Routes</h3>
+        <ul>
+          <li><code>/api/recent</code> - latest events JSON</li>
+          <li><code>/api/now-playing</code> - current display card JSON</li>
+          <li><code>/api/status</code> - summary and route info</li>
+          <li><code>/history</code> - full playback timeline</li>
+        </ul>
+        <p>The webhook stores only the useful display fields and prunes old rows so the app stays lightweight on Hobby.</p>
+      </article>
+
+      <article class="doc-card">
+        <h3>Example Payload</h3>
+        <pre>{
+  "event": "scrobble",
+  "song": {
+    "artist": "Carly Rae Jepsen",
+    "track": "Run Away With Me",
+    "album": "Emotion",
+    "artwork": "https://example.com/art.jpg",
+    "url": "https://example.com/track",
+    "timestamp": "2026-04-21T18:14:00Z",
+    "loved": false
+  }
+}</pre>
+      </article>
+
+      <article class="doc-card">
+        <h3>Response Shape</h3>
+        <pre>{
+  "ok": true,
+  "deduped": false,
+  "stored_event": {
+    "artist": "...",
+    "track": "...",
+    "received_at": "..."
+  }
+}</pre>
+      </article>
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a1020">
+  <title>{{ title }}</title>
+  <meta name="description" content="{{ description }}">
+  <style>
+    :root {
+      --bg: #050816;
+      --bg-alt: #0a1020;
+      --panel: rgba(12, 18, 36, 0.84);
+      --panel-strong: rgba(16, 24, 46, 0.94);
+      --line: rgba(173, 188, 255, 0.16);
+      --text: #eff4ff;
+      --muted: #98a6c7;
+      --accent: #7dd3fc;
+      --accent-strong: #60a5fa;
+      --live: #34d399;
+      --live-glow: rgba(52, 211, 153, 0.25);
+      --paused: #f59e0b;
+      --loved: #fb7185;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+      --font-display: "Segoe UI Variable Display", "Segoe UI", "Aptos", "Helvetica Neue", sans-serif;
+      --font-body: "Segoe UI", "Aptos", "Helvetica Neue", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { color-scheme: dark; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font-body);
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(96, 165, 250, 0.14), transparent 32%),
+        radial-gradient(circle at top right, rgba(52, 211, 153, 0.12), transparent 28%),
+        linear-gradient(180deg, #050816 0%, #070c19 42%, #050816 100%);
+      overflow-x: hidden;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    img { display: block; max-width: 100%; }
+
+    .ambient {
+      position: fixed;
+      inset: auto;
+      pointer-events: none;
+      filter: blur(36px);
+      opacity: 0.8;
+      z-index: 0;
+    }
+
+    .ambient-a {
+      top: -120px;
+      left: -100px;
+      width: 260px;
+      height: 260px;
+      border-radius: 999px;
+      background: rgba(96, 165, 250, 0.16);
+    }
+
+    .ambient-b {
+      bottom: 5%;
+      right: -80px;
+      width: 280px;
+      height: 280px;
+      border-radius: 999px;
+      background: rgba(52, 211, 153, 0.13);
+    }
+
+    .container {
+      width: min(1160px, calc(100% - 1.5rem));
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    .site-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 0 0.8rem;
+    }
+
+    .brand {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      font-family: var(--font-display);
+    }
+
+    .brand strong {
+      font-size: 1.08rem;
+      letter-spacing: 0.02em;
+    }
+
+    .brand span {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .nav {
+      display: inline-flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .nav a {
+      border: 1px solid transparent;
+      color: var(--muted);
+      padding: 0.6rem 0.9rem;
+      border-radius: 999px;
+      transition: all 160ms ease;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .nav a:hover,
+    .nav a[aria-current="page"] {
+      color: var(--text);
+      border-color: var(--line);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    main.container {
+      padding: 1rem 0 4rem;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.9), rgba(8, 14, 29, 0.92));
+      border: 1px solid var(--line);
+      border-radius: 36px;
+      box-shadow: var(--shadow);
+      padding: 1.35rem;
+      margin-top: 0.5rem;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(135deg, rgba(96, 165, 250, 0.12), transparent 30%),
+        linear-gradient(315deg, rgba(52, 211, 153, 0.1), transparent 28%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--live);
+      box-shadow: 0 0 0 6px var(--live-glow);
+    }
+
+    .hero h1 {
+      margin: 0.65rem 0 0.35rem;
+      font-family: var(--font-display);
+      font-size: clamp(2.3rem, 5vw, 4.8rem);
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+      max-width: 11ch;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 62ch;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.65;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.7rem;
+      margin-top: 1.05rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.6rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    .pill--muted { color: var(--muted); }
+    .pill--live { background: rgba(52, 211, 153, 0.08); border-color: rgba(52, 211, 153, 0.2); }
+    .pill--paused { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.22); }
+
+    .section {
+      margin-top: 1.1rem;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+      margin: 1.35rem 0 0.85rem;
+    }
+
+    .section-header h2 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      letter-spacing: -0.03em;
+    }
+
+    .section-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .grid-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(18, 26, 49, 0.92), rgba(11, 17, 33, 0.96));
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card-inner {
+      padding: 1rem;
+    }
+
+    .current-card {
+      min-height: 100%;
+    }
+
+    .current-card .card-inner {
+      display: grid;
+      grid-template-columns: minmax(170px, 240px) minmax(0, 1fr);
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .art {
+      position: relative;
+      border-radius: 22px;
+      overflow: hidden;
+      aspect-ratio: 1 / 1;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .art img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .card-copy {
+      min-width: 0;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.42rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border: 1px solid transparent;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--muted);
+    }
+
+    .badge--live { color: #b7f7da; border-color: rgba(52, 211, 153, 0.24); background: rgba(52, 211, 153, 0.1); }
+    .badge--paused { color: #ffd58c; border-color: rgba(245, 158, 11, 0.24); background: rgba(245, 158, 11, 0.12); }
+    .badge--loved { color: #ffb0bf; border-color: rgba(251, 113, 133, 0.22); background: rgba(251, 113, 133, 0.1); }
+    .badge--scrobble { color: #b6c8ff; border-color: rgba(125, 211, 252, 0.22); background: rgba(125, 211, 252, 0.08); }
+
+    .track-title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: clamp(1.45rem, 2.5vw, 2.4rem);
+      line-height: 1.1;
+      letter-spacing: -0.04em;
+      word-break: break-word;
+    }
+
+    .track-title a:hover,
+    .track-subtitle a:hover {
+      color: var(--accent);
+    }
+
+    .track-subtitle {
+      margin: 0.45rem 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .track-subtitle strong {
+      color: var(--text);
+      font-weight: 650;
+    }
+
+    .sep {
+      color: var(--muted);
+      margin: 0 0.25rem;
+    }
+
+    .track-extras {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      margin-top: 0.9rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .track-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      margin-top: 0.85rem;
+    }
+
+    .link-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.45rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+      font-size: 0.84rem;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .link-chip:hover {
+      transform: translateY(-1px);
+      border-color: rgba(125, 211, 252, 0.28);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.9rem;
+    }
+
+    .summary-card {
+      padding: 1rem;
+    }
+
+    .summary-card h3 {
+      margin: 0 0 0.3rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .summary-card strong {
+      display: block;
+      font-family: var(--font-display);
+      font-size: 1.45rem;
+      letter-spacing: -0.03em;
+    }
+
+    .summary-card p {
+      margin: 0.35rem 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .track-list {
+      display: grid;
+      gap: 0.8rem;
+    }
+
+    .track-row {
+      display: grid;
+      grid-template-columns: 84px minmax(0, 1fr);
+      gap: 0.9rem;
+      padding: 0.9rem;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: rgba(10, 16, 32, 0.68);
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .track-row:hover {
+      transform: translateY(-1px);
+      border-color: rgba(125, 211, 252, 0.18);
+      background: rgba(14, 21, 40, 0.88);
+    }
+
+    .track-row .art {
+      border-radius: 18px;
+    }
+
+    .track-row .track-title {
+      font-size: 1.06rem;
+      margin-top: 0.05rem;
+    }
+
+    .track-row .track-subtitle {
+      margin-top: 0.2rem;
+      font-size: 0.95rem;
+    }
+
+    .timestamp {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .empty-state {
+      padding: 1.25rem;
+      border-radius: 24px;
+      border: 1px dashed rgba(173, 188, 255, 0.24);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.8rem;
+      margin-bottom: 1rem;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      appearance: none;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      padding: 0.82rem 0.9rem;
+      font: inherit;
+      outline: none;
+    }
+
+    .field input::placeholder {
+      color: #7183a5;
+    }
+
+    .actions {
+      display: flex;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      border: 1px solid var(--line);
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 999px;
+      padding: 0.8rem 1rem;
+      cursor: pointer;
+      font: inherit;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(125, 211, 252, 0.28);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .doc-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.9rem;
+    }
+
+    .doc-card {
+      padding: 1rem;
+      border-radius: 24px;
+      border: 1px solid var(--line);
+      background: rgba(10, 16, 32, 0.72);
+    }
+
+    .doc-card h3 {
+      margin: 0 0 0.55rem;
+      font-size: 1rem;
+      font-family: var(--font-display);
+    }
+
+    .doc-card p,
+    .doc-card li {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .doc-card pre {
+      margin: 0;
+      overflow: auto;
+      border-radius: 18px;
+      padding: 0.95rem;
+      background: rgba(0, 0, 0, 0.28);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: #d9e4ff;
+    }
+
+    .footer-note {
+      margin: 1.2rem 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .pulse {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--live);
+      box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.45);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.45); }
+      70% { box-shadow: 0 0 0 10px rgba(52, 211, 153, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+    }
+
+    @media (max-width: 980px) {
+      .grid-hero,
+      .doc-grid,
+      .summary-grid,
+      .filters {
+        grid-template-columns: 1fr;
+      }
+
+      .current-card .card-inner {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .site-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .nav {
+        justify-content: flex-start;
+      }
+
+      .track-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+  <header class="site-header container">
+    <a class="brand" href="/">
+      <strong>{{ app_name }}</strong>
+      <span>Powered by Web Scrobbler</span>
+    </a>
+    <nav class="nav" aria-label="Primary">
+      <a href="/" {% if active_page == "home" %}aria-current="page"{% endif %}>Home</a>
+      <a href="/history" {% if active_page == "history" %}aria-current="page"{% endif %}>History</a>
+      <a href="/status" {% if active_page == "status" %}aria-current="page"{% endif %}>Status</a>
+    </nav>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <script>
+    window.RP_PLACEHOLDER_ART = "{{ placeholder_art_url }}";
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function chipForEvent(item) {
+      const type = (item && item.event_type || "").toLowerCase();
+      const loved = !!(item && item.loved);
+      if (loved) return "badge badge--loved";
+      if (type === "nowplaying" || type === "resumedplaying" || item && item.is_now_playing) return "badge badge--live";
+      if (type === "paused" || item && item.is_paused) return "badge badge--paused";
+      if (type === "scrobble") return "badge badge--scrobble";
+      return "badge";
+    }
+
+    function labelForEvent(item) {
+      const type = (item && item.event_type || "").toLowerCase();
+      if (type === "nowplaying" || type === "resumedplaying") return "Now Playing";
+      if (type === "paused") return "Paused";
+      if (type === "scrobble") return "Scrobbled";
+      if (type === "loved") return "Loved";
+      return type ? type.charAt(0).toUpperCase() + type.slice(1) : "Event";
+    }
+
+    function artistLine(item) {
+      const artist = escapeHtml(item.artist || "Unknown artist");
+      const track = escapeHtml(item.track || "Untitled track");
+      const album = item.album ? ` <span class="sep">•</span> <span>${escapeHtml(item.album)}</span>` : "";
+      return `<strong>${artist}</strong> <span class="sep">•</span> <span>${track}</span>${album}`;
+    }
+
+    function trackCardMarkup(item, compact) {
+      if (!item) {
+        return `<div class="empty-state">No tracks received yet. Start playing music to populate the feed.</div>`;
+      }
+      const art = item.artwork_url || window.RP_PLACEHOLDER_ART;
+      const title = escapeHtml(item.track || "Untitled track");
+      const artist = escapeHtml(item.artist || "Unknown artist");
+      const album = item.album ? `<p class="track-subtitle">${escapeHtml(item.album)}</p>` : "";
+      const badge = `<span class="${chipForEvent(item)}">${labelForEvent(item)}</span>`;
+      const timestamp = item.received_at_human || "Unknown time";
+      const timestampExact = item.received_at_exact || "";
+      const trackLinkStart = item.track_url ? `<a href="${escapeHtml(item.track_url)}" target="_blank" rel="noreferrer">` : "";
+      const trackLinkEnd = item.track_url ? `</a>` : "";
+      const artistLineHtml = item.artist_url
+        ? `<a href="${escapeHtml(item.artist_url)}" target="_blank" rel="noreferrer"><strong>${artist}</strong></a>`
+        : `<strong>${artist}</strong>`;
+      const albumMarkup = item.album
+        ? item.album_url
+          ? `<p class="track-subtitle">Album: <a href="${escapeHtml(item.album_url)}" target="_blank" rel="noreferrer">${escapeHtml(item.album)}</a></p>`
+          : `<p class="track-subtitle">Album: ${escapeHtml(item.album)}</p>`
+        : "";
+      const links = [
+        item.track_url ? `<a class="link-chip" href="${escapeHtml(item.track_url)}" target="_blank" rel="noreferrer">Track</a>` : "",
+        item.artist_url ? `<a class="link-chip" href="${escapeHtml(item.artist_url)}" target="_blank" rel="noreferrer">Artist</a>` : "",
+        item.album_url ? `<a class="link-chip" href="${escapeHtml(item.album_url)}" target="_blank" rel="noreferrer">Album</a>` : ""
+      ].filter(Boolean).join("");
+      const rowClass = compact ? "track-row" : "card current-card";
+      const innerStart = compact ? "" : '<div class="card-inner">';
+      const innerEnd = compact ? "" : "</div>";
+      const copyStart = compact ? "" : '<div class="card-copy">';
+      const copyEnd = compact ? "" : "</div>";
+      return `
+        <article class="${rowClass}">
+          ${innerStart}
+            <div class="art">
+              <img src="${escapeHtml(art)}" alt="${artist} - ${title}" loading="lazy">
+            </div>
+            ${copyStart}
+              <div class="meta-row">
+                ${badge}
+                <span class="timestamp" title="${escapeHtml(timestampExact)}">${escapeHtml(timestamp)}</span>
+              </div>
+              <h3 class="track-title">${trackLinkStart}${title}${trackLinkEnd}</h3>
+              <p class="track-subtitle">${artistLineHtml}</p>
+              ${albumMarkup}
+              ${links ? `<div class="track-links">${links}</div>` : ""}
+            ${copyEnd}
+          ${innerEnd}
+        </article>
+      `;
+    }
+
+    async function fetchJson(url) {
+      const response = await fetch(url, { headers: { "Accept": "application/json" } });
+      if (!response.ok) {
+        throw new Error(`Request failed: ${response.status}`);
+      }
+      return response.json();
+    }
+
+    async function refreshHomeDashboard() {
+      const currentSlot = document.querySelector("[data-current-track]");
+      const recentSlot = document.querySelector("[data-recent-tracks]");
+      if (!currentSlot || !recentSlot) return;
+
+      try {
+        const [currentPayload, recentPayload] = await Promise.all([
+          fetchJson("/api/now-playing"),
+          fetchJson("/api/recent?limit=8"),
+        ]);
+        const currentItem = currentPayload.item || null;
+        const recentItems = Array.isArray(recentPayload.items) ? recentPayload.items : [];
+        currentSlot.innerHTML = trackCardMarkup(currentItem, false);
+        recentSlot.innerHTML = recentItems.length
+          ? recentItems.map((item) => trackCardMarkup(item, true)).join("")
+          : `<div class="empty-state">No tracks received yet. Start playing music to populate the feed.</div>`;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    if (document.querySelector("[data-dashboard]")) {
+      refreshHomeDashboard();
+      setInterval(refreshHomeDashboard, 15000);
+    }
+  </script>
+</body>
+</html>

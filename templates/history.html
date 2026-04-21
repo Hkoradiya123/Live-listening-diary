@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="hero">
+    <span class="eyebrow">Playback timeline</span>
+    <h1>History</h1>
+    <p>
+      Browse the full listening trail with filters for event type, artist, and search text. The page keeps the design
+      music-focused instead of table-heavy so it feels like a live diary rather than an admin panel.
+    </p>
+    <div class="hero-meta">
+      <span class="pill pill--muted">{{ total_items }} items shown</span>
+      <a class="pill pill--live" href="/status">Webhook docs</a>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-header">
+      <div>
+        <h2>Filters</h2>
+        <p>Narrow the timeline without leaving the page.</p>
+      </div>
+    </div>
+
+    <form method="get" class="card card-inner">
+      <div class="filters">
+        <div class="field">
+          <label for="q">Search</label>
+          <input id="q" name="q" value="{{ filters.q }}" placeholder="Track, artist, or album">
+        </div>
+        <div class="field">
+          <label for="artist">Artist</label>
+          <input id="artist" name="artist" value="{{ filters.artist }}" placeholder="Artist name">
+        </div>
+        <div class="field">
+          <label for="event">Event Type</label>
+          <select id="event" name="event">
+            {% for value, label in [("all","All"),("nowplaying","Now Playing"),("paused","Paused"),("resumedplaying","Resumed"),("scrobble","Scrobbled"),("loved","Loved")] %}
+              <option value="{{ value }}" {% if filters.event == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="limit">Limit</label>
+          <select id="limit" name="limit">
+            {% for value in [25, 50, 100] %}
+              <option value="{{ value }}" {% if filters.limit == value %}selected{% endif %}>{{ value }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="button" type="submit">Apply filters</button>
+        <a class="button" href="/history">Reset</a>
+      </div>
+    </form>
+  </section>
+
+  <section class="section">
+    <div class="section-header">
+      <div>
+        <h2>Timeline</h2>
+        <p>Latest events at the top.</p>
+      </div>
+    </div>
+
+    <div class="track-list">
+      {% if history_items %}
+        {% for item in history_items %}
+          <article class="track-row">
+            <div class="art">
+              <img src="{{ item.artwork_url }}" alt="{{ item.artist }} - {{ item.track }}" loading="lazy">
+            </div>
+            <div>
+              <div class="meta-row">
+                <span class="{{ item.badge_class }}">{{ item.badge_label }}</span>
+                <span class="timestamp" title="{{ item.received_at_exact }}">{{ item.received_at_human }}</span>
+              </div>
+              <h3 class="track-title">
+                {% if item.track_url %}<a href="{{ item.track_url }}" target="_blank" rel="noreferrer">{% endif %}
+                {{ item.track }}
+                {% if item.track_url %}</a>{% endif %}
+              </h3>
+              <p class="track-subtitle">
+                {% if item.artist_url %}
+                  <a href="{{ item.artist_url }}" target="_blank" rel="noreferrer"><strong>{{ item.artist }}</strong></a>
+                {% else %}
+                  <strong>{{ item.artist }}</strong>
+                {% endif %}
+                {% if item.album %}
+                  <span class="sep">•</span>
+                  {% if item.album_url %}
+                    <a href="{{ item.album_url }}" target="_blank" rel="noreferrer">{{ item.album }}</a>
+                  {% else %}
+                    <span>{{ item.album }}</span>
+                  {% endif %}
+                {% endif %}
+              </p>
+            </div>
+          </article>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">No tracks match the selected filters yet.</div>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}
+
