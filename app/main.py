@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import base64
 import json
 import logging
-from html import escape
 from datetime import datetime, timezone
+from html import escape
 from pathlib import Path
 from urllib.parse import parse_qs
 
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -34,11 +36,11 @@ from .repository import (
     store_event,
 )
 from .utils import PLACEHOLDER_ART_URL, serialize_event, serialize_state
-import base64
 import requests
 
 
 logger = logging.getLogger("uvicorn.error")
+load_dotenv()
 
 
 def _resolve_token(request: Request, path_token: str | None = None) -> str | None:
@@ -626,80 +628,95 @@ def create_app(
             )
         except SQLAlchemyError as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Database error: {exc}") from exc
+
+    def get_base64_image(url: str | None) -> str:
+        if not url:
+            return PLACEHOLDER_ART_URL
+        if isinstance(url, str) and url.startswith("data:image"):
+            return url
+        try:
+            response = requests.get(url, timeout=3)
+            if response.status_code == 200 and response.content:
+                content_type = response.headers.get("Content-Type", "image/jpeg").split(";", 1)[0]
+                encoded = base64.b64encode(response.content).decode("utf-8")
+                return f"data:{content_type};base64,{encoded}"
+        except Exception:
+            pass
+        return PLACEHOLDER_ART_URL
+
+
     @app.get("/api/public/now-playing.svg/{token}")
     def now_playing_svg_public(token: str, session=Depends(get_session)):
         if session is None:
             return Response("Database not configured", status_code=503)
 
-        # 🔐 Token-based user lookup (NO cookies)
+        # 🔐 token lookup (no cookies)
         user = session.scalar(
             select(UserAccount).where(UserAccount.webhook_token == token)
         )
         if user is None:
             return Response("Invalid token", status_code=404)
 
-        # 🎧 Get current track (your existing logic)
         current = current_card(session, user.id, timezone_name=settings.display_timezone)
 
         if not current:
             svg = """
-            <svg width="420" height="120" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100%" height="100%" rx="16" fill="#0f172a"/>
-            <text x="20" y="65" fill="#94a3b8" font-size="16">
-                🎧 Nothing playing
-            </text>
+            <svg width="450" height="130" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100%" height="100%" rx="18" fill="#0f172a"/>
+            <text x="20" y="70" fill="#94a3b8" font-size="16">🎧 Nothing playing</text>
             </svg>
             """
             return Response(content=svg, media_type="image/svg+xml")
 
-        title = current.get("track", "Unknown")
-        artist = current.get("artist", "Unknown")
-        cover = current.get("artwork_url") or PLACEHOLDER_ART_URL
+        title = escape(str(current.get("track", "Unknown")))
+        artist = escape(str(current.get("artist", "Unknown")))
+        cover_url = current.get("artwork_url")
         track_url = current.get("track_url")
 
-        title_text = escape(str(title))
-        artist_text = escape(str(artist))
-        cover_attr = escape(str(cover), quote=True)
+        # 🔥 FIX: convert to base64 (GitHub-safe)
+        cover_b64 = get_base64_image(cover_url)
+        cover_attr = escape(cover_b64, quote=True)
+
         track_href = escape(str(track_url), quote=True) if track_url else ""
         card_open = f'<a href="{track_href}" target="_blank">' if track_href else ""
         card_close = "</a>" if track_href else ""
 
         svg = f"""
-            <svg width="450" height="130" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#0f172a"/>
-                <stop offset="100%" stop-color="#1e293b"/>
-                </linearGradient>
-            </defs>
+        <svg width="450" height="130" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#0f172a"/>
+            <stop offset="100%" stop-color="#1e293b"/>
+            </linearGradient>
+        </defs>
 
-            <rect width="100%" height="100%" rx="18" fill="url(#bg)"/>
+        <rect width="100%" height="100%" rx="18" fill="url(#bg)"/>
 
-            {card_open}
-            <image href="{cover_attr}" x="15" y="25" width="80" height="80"/>
+        {card_open}
+        <!-- Cover -->
+        <image href="{cover_attr}" x="15" y="25" width="80" height="80" preserveAspectRatio="xMidYMid slice"/>
 
-            <text x="110" y="50" fill="#22c55e" font-size="13">
-                🎧 Now Playing
-            </text>
+        <!-- Text -->
+        <text x="110" y="50" fill="#22c55e" font-size="13">🎧 Now Playing</text>
 
-            <text x="110" y="75" fill="#ffffff" font-size="17" font-weight="bold">
-                {title_text}
-            </text>
+        <text x="110" y="75" fill="#ffffff" font-size="17" font-weight="bold">
+            {title}
+        </text>
 
-            <text x="110" y="100" fill="#94a3b8" font-size="14">
-                {artist_text}
-            </text>
-            {card_close}
-            </svg>
-                """
+        <text x="110" y="100" fill="#94a3b8" font-size="14">
+            {artist}
+        </text>
+        {card_close}
+        </svg>
+            """
 
         return Response(
             content=svg,
             media_type="image/svg+xml",
             headers={"Cache-Control": "s-maxage=60"}
         )
-        
-        
+                
+                
 
     @app.get("/api/public/recent.svg/{token}")
     def recent_svg(token: str, session=Depends(get_session)):
@@ -720,21 +737,6 @@ def create_app(
             event_type="scrobble"
         )
 
-        def get_base64_image(url):
-            if not url:
-                return PLACEHOLDER_ART_URL
-            if isinstance(url, str) and url.startswith("data:image"):
-                return url
-            try:
-                r = requests.get(url, timeout=3)
-                if r.status_code == 200:
-                    content_type = r.headers.get("Content-Type", "image/jpeg").split(";", 1)[0]
-                    encoded = base64.b64encode(r.content).decode("utf-8")
-                    return f"data:{content_type};base64,{encoded}"
-            except:
-                pass
-            return PLACEHOLDER_ART_URL
-
         cards = ""
         x = 20
 
@@ -744,7 +746,7 @@ def create_app(
             image_url = t.get("artwork_url") or PLACEHOLDER_ART_URL
             time = t.get("received_at_human", "just now")
             track_url = t.get("track_url")
-
+    
             image_base64 = get_base64_image(image_url)
             title_text = escape(str(title[:22]))
             artist_text = escape(str(artist[:22]))
@@ -886,3 +888,29 @@ def create_app(
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Database error: {exc}") from exc
 
     return app
+
+
+def _create_default_app() -> FastAPI:
+    try:
+        return create_app()
+    except RuntimeError as exc:
+        logger.warning("App startup fallback: %s", exc)
+        fallback = FastAPI(title="Recently Played (unconfigured)")
+
+        @fallback.api_route("/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"])
+        def _config_error(path: str):
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "error": str(exc),
+                    "hint": "Set DATABASE_URL in your environment or .env file, then restart server.",
+                },
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return fallback
+
+
+# Export a concrete ASGI application instance for uvicorn targets like:
+#   uvicorn app.main:app --reload
+app = _create_default_app()
