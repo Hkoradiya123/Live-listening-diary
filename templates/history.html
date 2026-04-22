@@ -2,15 +2,16 @@
 
 {% block content %}
   <section class="hero">
-    <span class="eyebrow">Playback timeline</span>
+    <span class="eyebrow">Private playback timeline</span>
     <h1>History</h1>
     <p>
-      Browse the full listening trail with filters for event type, artist, and search text. The page keeps the design
-      music-focused instead of table-heavy so it feels like a live diary rather than an admin panel.
+      Browse the full listening trail for <strong>{{ current_user.display_name }}</strong> with filters for event
+      type, artist, and search text. The page stays music-focused instead of table-heavy so it feels like a live diary
+      rather than an admin panel.
     </p>
     <div class="hero-meta">
       <span class="pill pill--muted">{{ total_items }} items shown</span>
-      <a class="pill pill--live" href="/status">Webhook docs</a>
+      <a class="pill pill--live" href="/account">Webhook docs</a>
     </div>
   </section>
 
@@ -35,7 +36,7 @@
         <div class="field">
           <label for="event">Event Type</label>
           <select id="event" name="event">
-            {% for value, label in [("all","All"),("nowplaying","Now Playing"),("paused","Paused"),("resumedplaying","Resumed"),("scrobble","Scrobbled"),("loved","Loved")] %}
+            {% for value, label in [("all","All"),("nowplaying","Now Playing"),("paused","Paused"),("played","Played"),("resumedplaying","Resumed"),("scrobble","Scrobbled"),("loved","Loved")] %}
               <option value="{{ value }}" {% if filters.event == value %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
@@ -88,7 +89,7 @@
                   <strong>{{ item.artist }}</strong>
                 {% endif %}
                 {% if item.album %}
-                  <span class="sep">•</span>
+                  <span class="sep">&middot;</span>
                   {% if item.album_url %}
                     <a href="{{ item.album_url }}" target="_blank" rel="noreferrer">{{ item.album }}</a>
                   {% else %}
@@ -105,4 +106,3 @@
     </div>
   </section>
 {% endblock %}
-

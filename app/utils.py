@@ -30,6 +30,7 @@ def event_badge_label(event_type: str | None) -> str:
         "nowplaying": "Now Playing",
         "resumedplaying": "Now Playing",
         "paused": "Paused",
+        "played": "Played",
         "scrobble": "Scrobbled",
         "loved": "Loved",
     }
@@ -44,6 +45,8 @@ def event_badge_class(event_type: str | None, loved: bool = False, is_active: bo
         return "badge badge--live"
     if event_type == "paused":
         return "badge badge--paused"
+    if event_type == "played":
+        return "badge badge--played"
     if event_type == "scrobble":
         return "badge badge--scrobble"
     return "badge"
@@ -144,4 +147,3 @@ def serialize_state(state: PlaybackState | None, timezone_name: str = "UTC") -> 
         "is_paused": state.is_paused,
         "status": state.status,
     }
-

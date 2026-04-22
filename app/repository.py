@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from .models import ListeningEvent, PlaybackState
+from .models import ListeningEvent, PlaybackState, UserAccount
 from .parsing import ParsedWebhookEvent
 from .utils import serialize_event, serialize_state
 
@@ -15,9 +15,41 @@ def _normalized_text(value: str | None) -> str:
     return (value or "").strip().lower()
 
 
-def build_event_hash(parsed: ParsedWebhookEvent) -> str:
+def _is_placeholder_event(artist: str | None, track: str | None) -> bool:
+    return _normalized_text(artist) == "unknown artist" and _normalized_text(track) == "untitled track"
+
+
+def _event_identity(event: ListeningEvent) -> tuple[str, str]:
+    return _normalized_text(event.artist), _normalized_text(event.track)
+
+
+def _collapse_consecutive_events(events: list[ListeningEvent]) -> list[ListeningEvent]:
+    collapsed: list[ListeningEvent] = []
+    previous_identity: tuple[str, str] | None = None
+    for event in events:
+        identity = _event_identity(event)
+        if identity == previous_identity:
+            continue
+        collapsed.append(event)
+        previous_identity = identity
+    return collapsed
+
+
+def _retire_previous_current_event(session: Session, state: PlaybackState) -> None:
+    if not state.current_event_id:
+        return
+    previous_event = session.get(ListeningEvent, state.current_event_id)
+    if previous_event is None or previous_event.user_id != state.user_id:
+        return
+    previous_event.event_type = "played"
+    previous_event.is_now_playing = False
+    previous_event.is_paused = False
+
+
+def build_event_hash(user_id: int, parsed: ParsedWebhookEvent) -> str:
     payload = "|".join(
         [
+            str(user_id),
             parsed.event_type,
             _normalized_text(parsed.artist),
             _normalized_text(parsed.track),
@@ -33,12 +65,17 @@ def build_event_hash(parsed: ParsedWebhookEvent) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def get_or_create_state(session: Session, create: bool = True) -> PlaybackState | None:
-    state = session.scalar(select(PlaybackState).order_by(PlaybackState.id.asc()).limit(1))
+def get_or_create_state(session: Session, user_id: int, create: bool = True) -> PlaybackState | None:
+    state = session.scalar(
+        select(PlaybackState)
+        .where(PlaybackState.user_id == user_id)
+        .order_by(PlaybackState.id.asc())
+        .limit(1)
+    )
     if state is None:
         if not create:
             return None
-        state = PlaybackState()
+        state = PlaybackState(user_id=user_id)
         session.add(state)
         session.flush()
     return state
@@ -73,13 +110,19 @@ def _apply_current_state(
 
 def store_event(
     session: Session,
+    user: UserAccount,
     parsed: ParsedWebhookEvent,
     received_at: datetime,
     max_events: int,
 ) -> tuple[ListeningEvent, bool, PlaybackState | None]:
-    event_hash = build_event_hash(parsed)
-    existing = session.scalar(select(ListeningEvent).where(ListeningEvent.event_hash == event_hash))
-    state = get_or_create_state(session)
+    event_hash = build_event_hash(user.id, parsed)
+    existing = session.scalar(
+        select(ListeningEvent).where(
+            ListeningEvent.user_id == user.id,
+            ListeningEvent.event_hash == event_hash,
+        )
+    )
+    state = get_or_create_state(session, user.id)
     assert state is not None
 
     if existing is not None:
@@ -90,6 +133,7 @@ def store_event(
 
     event = ListeningEvent(
         event_hash=event_hash,
+        user_id=user.id,
         event_type=parsed.event_type,
         artist=parsed.artist,
         track=parsed.track,
@@ -116,42 +160,81 @@ def store_event(
         and _normalized_text(state.track) == _normalized_text(parsed.track)
     )
 
-    if parsed.is_now_playing or parsed.is_paused:
+    if parsed.is_now_playing:
+        _retire_previous_current_event(session, state)
         replace_display = True
     elif parsed.event_type == "loved":
         replace_display = not state.current_event_id
     elif parsed.event_type == "scrobble":
         replace_display = not state.current_event_id and not state.is_active and not state.is_paused
 
+    if replace_display and _is_placeholder_event(parsed.artist, parsed.track):
+        replace_display = False
+
     _apply_current_state(state, event, parsed, received_at, replace_display)
 
     if parsed.event_type == "loved" and current_display_matches:
         state.loved = True
 
-    keep_ids = select(ListeningEvent.id).order_by(ListeningEvent.received_at.desc(), ListeningEvent.id.desc()).limit(max_events)
-    session.execute(delete(ListeningEvent).where(~ListeningEvent.id.in_(keep_ids)))
+    keep_ids = (
+        select(ListeningEvent.id)
+        .where(ListeningEvent.user_id == user.id)
+        .order_by(ListeningEvent.received_at.desc(), ListeningEvent.id.desc())
+        .limit(max_events)
+    )
+    session.execute(
+        delete(ListeningEvent).where(
+            ListeningEvent.user_id == user.id,
+            ~ListeningEvent.id.in_(keep_ids),
+        )
+    )
     session.commit()
     session.refresh(event)
     session.refresh(state)
     return event, False, state
 
 
-def recent_events(session: Session, limit: int = 8, timezone_name: str = "UTC") -> list[dict]:
-    rows = session.scalars(
-        select(ListeningEvent).order_by(ListeningEvent.received_at.desc(), ListeningEvent.id.desc()).limit(limit)
-    ).all()
+def recent_events(
+    session: Session,
+    user_id: int,
+    limit: int = 8,
+    timezone_name: str = "UTC",
+    event_type: str | None = None,
+) -> list[dict]:
+    statement = (
+        select(ListeningEvent)
+        .where(
+            ListeningEvent.user_id == user_id,
+            ~(
+                (ListeningEvent.artist == "Unknown artist")
+                & (ListeningEvent.track == "Untitled track")
+            )
+        )
+        .order_by(ListeningEvent.received_at.desc(), ListeningEvent.id.desc())
+    )
+    if event_type and event_type != "all":
+        statement = statement.where(ListeningEvent.event_type == event_type)
+    fetch_limit = max(limit * 4, limit + 10)
+    rows = session.scalars(statement.limit(fetch_limit)).all()
+    rows = _collapse_consecutive_events(rows)
+    rows = rows[:limit]
     return [serialize_event(row, timezone_name=timezone_name) for row in rows]
 
 
 def history_events(
     session: Session,
+    user_id: int,
     limit: int = 100,
     event_type: str | None = None,
     query: str | None = None,
     artist: str | None = None,
     timezone_name: str = "UTC",
 ) -> list[dict]:
-    statement = select(ListeningEvent).order_by(ListeningEvent.received_at.desc(), ListeningEvent.id.desc())
+    statement = (
+        select(ListeningEvent)
+        .where(ListeningEvent.user_id == user_id)
+        .order_by(ListeningEvent.received_at.desc(), ListeningEvent.id.desc())
+    )
     if event_type and event_type != "all":
         statement = statement.where(ListeningEvent.event_type == event_type)
     if artist:
@@ -163,20 +246,44 @@ def history_events(
             | (ListeningEvent.track.ilike(pattern))
             | (ListeningEvent.album.ilike(pattern))
         )
-    rows = session.scalars(statement.limit(limit)).all()
+    fetch_limit = max(limit * 4, limit + 10)
+    rows = session.scalars(statement.limit(fetch_limit)).all()
+    rows = _collapse_consecutive_events(rows)
+    rows = rows[:limit]
     return [serialize_event(row, timezone_name=timezone_name) for row in rows]
 
 
-def current_card(session: Session, timezone_name: str = "UTC") -> dict | None:
-    state = get_or_create_state(session, create=False)
-    if state is not None and state.current_event_id and state.artist and state.track:
+def current_card(session: Session, user_id: int, timezone_name: str = "UTC") -> dict | None:
+    state = get_or_create_state(session, user_id, create=False)
+    if (
+        state is not None
+        and state.is_active
+        and not state.is_paused
+        and state.current_event_id
+        and state.artist
+        and state.track
+        and not _is_placeholder_event(state.artist, state.track)
+    ):
         return serialize_state(state, timezone_name=timezone_name)
-    latest = session.scalar(select(ListeningEvent).order_by(ListeningEvent.received_at.desc(), ListeningEvent.id.desc()).limit(1))
+    latest = session.scalar(
+        select(ListeningEvent)
+        .where(
+            ListeningEvent.user_id == user_id,
+            ListeningEvent.is_paused.is_(False),
+            ListeningEvent.event_type != "played",
+            ~(
+                (ListeningEvent.artist == "Unknown artist")
+                & (ListeningEvent.track == "Untitled track")
+            )
+        )
+        .order_by(ListeningEvent.received_at.desc(), ListeningEvent.id.desc())
+        .limit(1)
+    )
     return serialize_event(latest, timezone_name=timezone_name) if latest else None
 
 
-def latest_state(session: Session) -> dict | None:
-    state = get_or_create_state(session, create=False)
+def latest_state(session: Session, user_id: int) -> dict | None:
+    state = get_or_create_state(session, user_id, create=False)
     if state is not None and state.current_event_id and state.artist and state.track:
         return {
             "current_event_id": state.current_event_id,
@@ -193,14 +300,21 @@ def latest_state(session: Session) -> dict | None:
     return None
 
 
-def stats_summary(session: Session, timezone_name: str = "UTC") -> dict:
+def stats_summary(session: Session, user_id: int, timezone_name: str = "UTC") -> dict:
     total_scrobbles = session.scalar(
-        select(func.count()).select_from(ListeningEvent).where(ListeningEvent.event_type == "scrobble")
+        select(func.count())
+        .select_from(ListeningEvent)
+        .where(ListeningEvent.user_id == user_id, ListeningEvent.event_type == "scrobble")
     ) or 0
-    last_event = session.scalar(select(ListeningEvent).order_by(ListeningEvent.received_at.desc(), ListeningEvent.id.desc()).limit(1))
+    last_event = session.scalar(
+        select(ListeningEvent)
+        .where(ListeningEvent.user_id == user_id)
+        .order_by(ListeningEvent.received_at.desc(), ListeningEvent.id.desc())
+        .limit(1)
+    )
     top_artist_row = session.execute(
         select(ListeningEvent.artist, func.count().label("event_count"))
-        .where(ListeningEvent.event_type == "scrobble")
+        .where(ListeningEvent.user_id == user_id, ListeningEvent.event_type == "scrobble")
         .group_by(ListeningEvent.artist)
         .order_by(func.count().desc(), ListeningEvent.artist.asc())
         .limit(1)

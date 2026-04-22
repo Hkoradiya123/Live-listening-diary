@@ -318,6 +318,7 @@
 
     .badge--live { color: #b7f7da; border-color: rgba(52, 211, 153, 0.24); background: rgba(52, 211, 153, 0.1); }
     .badge--paused { color: #ffd58c; border-color: rgba(245, 158, 11, 0.24); background: rgba(245, 158, 11, 0.12); }
+    .badge--played { color: #d8def6; border-color: rgba(173, 188, 255, 0.18); background: rgba(173, 188, 255, 0.08); }
     .badge--loved { color: #ffb0bf; border-color: rgba(251, 113, 133, 0.22); background: rgba(251, 113, 133, 0.1); }
     .badge--scrobble { color: #b6c8ff; border-color: rgba(125, 211, 252, 0.22); background: rgba(125, 211, 252, 0.08); }
 
@@ -482,6 +483,7 @@
       gap: 0.35rem;
     }
 
+    .field > span,
     .field label {
       color: var(--muted);
       font-size: 0.82rem;
@@ -534,6 +536,11 @@
       background: rgba(255, 255, 255, 0.08);
     }
 
+    .button.is-copied {
+      border-color: rgba(52, 211, 153, 0.28);
+      background: rgba(52, 211, 153, 0.12);
+    }
+
     .doc-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -576,6 +583,211 @@
       line-height: 1.6;
     }
 
+    .button--ghost {
+      background: transparent;
+    }
+
+    .button--solid {
+      border-color: rgba(96, 165, 250, 0.35);
+      background: linear-gradient(135deg, rgba(96, 165, 250, 0.92), rgba(45, 212, 191, 0.82));
+      color: #08111f;
+      font-weight: 700;
+    }
+
+    .button--danger {
+      border-color: rgba(251, 113, 133, 0.28);
+      background: rgba(251, 113, 133, 0.1);
+      color: #ffd6de;
+    }
+
+    .header-shell {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .user-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.6rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+    }
+
+    .user-pill strong {
+      font-size: 0.92rem;
+    }
+
+    .dashboard-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .stack {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .panel {
+      padding: 1rem;
+      border-radius: 26px;
+      border: 1px solid var(--line);
+      background: rgba(10, 16, 32, 0.72);
+    }
+
+    .panel h3 {
+      margin: 0 0 0.45rem;
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+    }
+
+    .panel p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .data-grid {
+      display: grid;
+      gap: 0.8rem;
+      margin-top: 0.9rem;
+    }
+
+    .data-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.8rem 0.9rem;
+      border: 1px solid rgba(173, 188, 255, 0.14);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .data-row span {
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .data-row strong {
+      text-align: right;
+      font-size: 0.95rem;
+      font-weight: 650;
+      word-break: break-word;
+    }
+
+    .code-block {
+      margin: 0;
+      padding: 0.95rem 1rem;
+      border-radius: 18px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: #dce7ff;
+      overflow: auto;
+    }
+
+    .copy-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 0.85rem;
+    }
+
+    .copy-row code,
+    .token-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 0.65rem;
+      border-radius: 12px;
+      border: 1px solid rgba(173, 188, 255, 0.14);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      word-break: break-all;
+    }
+
+    .auth-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(320px, 1.05fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .auth-card {
+      padding: 1.1rem;
+      border-radius: 28px;
+      border: 1px solid var(--line);
+      background: rgba(10, 16, 32, 0.75);
+      box-shadow: var(--shadow);
+    }
+
+    .auth-card h2 {
+      margin: 0 0 0.45rem;
+      font-family: var(--font-display);
+      font-size: 1.45rem;
+      letter-spacing: -0.03em;
+    }
+
+    .auth-card p {
+      margin: 0 0 0.9rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .auth-grid {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .auth-form {
+      display: grid;
+      gap: 0.8rem;
+    }
+
+    .field-help {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    .split-actions {
+      display: flex;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 0.6rem;
+    }
+
+    .notice {
+      padding: 0.8rem 0.95rem;
+      border-radius: 18px;
+      border: 1px solid rgba(251, 113, 133, 0.24);
+      background: rgba(251, 113, 133, 0.08);
+      color: #ffd6de;
+      line-height: 1.55;
+    }
+
+    .success {
+      border-color: rgba(52, 211, 153, 0.24);
+      background: rgba(52, 211, 153, 0.08);
+      color: #c8ffeb;
+    }
+
+    .tiny {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
     .pulse {
       display: inline-block;
       width: 8px;
@@ -596,7 +808,9 @@
       .grid-hero,
       .doc-grid,
       .summary-grid,
-      .filters {
+      .filters,
+      .dashboard-shell,
+      .auth-shell {
         grid-template-columns: 1fr;
       }
 
@@ -618,6 +832,10 @@
       .track-row {
         grid-template-columns: 1fr;
       }
+
+      .header-shell {
+        justify-content: flex-start;
+      }
     }
   </style>
 </head>
@@ -629,11 +847,23 @@
       <strong>{{ app_name }}</strong>
       <span>Powered by Web Scrobbler</span>
     </a>
-    <nav class="nav" aria-label="Primary">
-      <a href="/" {% if active_page == "home" %}aria-current="page"{% endif %}>Home</a>
-      <a href="/history" {% if active_page == "history" %}aria-current="page"{% endif %}>History</a>
-      <a href="/status" {% if active_page == "status" %}aria-current="page"{% endif %}>Status</a>
-    </nav>
+    {% if current_user %}
+      <div class="header-shell">
+        <span class="user-pill"><strong>{{ current_user.display_name }}</strong><span class="tiny">{{ current_user.email }}</span></span>
+        <nav class="nav" aria-label="Primary">
+          <a href="/" {% if active_page == "home" %}aria-current="page"{% endif %}>Dashboard</a>
+          <a href="/history" {% if active_page == "history" %}aria-current="page"{% endif %}>History</a>
+          <a href="/account" {% if active_page == "account" %}aria-current="page"{% endif %}>Account</a>
+        </nav>
+        <form action="/logout" method="post">
+          <button class="button button--ghost" type="submit">Logout</button>
+        </form>
+      </div>
+    {% else %}
+      <div class="header-shell">
+        <a class="button button--solid" href="/login">Sign in</a>
+      </div>
+    {% endif %}
   </header>
   <main class="container">
     {% block content %}{% endblock %}
@@ -657,6 +887,7 @@
       if (loved) return "badge badge--loved";
       if (type === "nowplaying" || type === "resumedplaying" || item && item.is_now_playing) return "badge badge--live";
       if (type === "paused" || item && item.is_paused) return "badge badge--paused";
+      if (type === "played") return "badge badge--played";
       if (type === "scrobble") return "badge badge--scrobble";
       return "badge";
     }
@@ -665,6 +896,7 @@
       const type = (item && item.event_type || "").toLowerCase();
       if (type === "nowplaying" || type === "resumedplaying") return "Now Playing";
       if (type === "paused") return "Paused";
+      if (type === "played") return "Played";
       if (type === "scrobble") return "Scrobbled";
       if (type === "loved") return "Loved";
       return type ? type.charAt(0).toUpperCase() + type.slice(1) : "Event";
@@ -673,8 +905,8 @@
     function artistLine(item) {
       const artist = escapeHtml(item.artist || "Unknown artist");
       const track = escapeHtml(item.track || "Untitled track");
-      const album = item.album ? ` <span class="sep">•</span> <span>${escapeHtml(item.album)}</span>` : "";
-      return `<strong>${artist}</strong> <span class="sep">•</span> <span>${track}</span>${album}`;
+      const album = item.album ? ` <span class="sep">&middot;</span> <span>${escapeHtml(item.album)}</span>` : "";
+      return `<strong>${artist}</strong> <span class="sep">&middot;</span> <span>${track}</span>${album}`;
     }
 
     function trackCardMarkup(item, compact) {
@@ -732,7 +964,9 @@
     async function fetchJson(url) {
       const response = await fetch(url, { headers: { "Accept": "application/json" } });
       if (!response.ok) {
-        throw new Error(`Request failed: ${response.status}`);
+        const error = new Error(`Request failed: ${response.status}`);
+        error.status = response.status;
+        throw error;
       }
       return response.json();
     }
@@ -745,7 +979,7 @@
       try {
         const [currentPayload, recentPayload] = await Promise.all([
           fetchJson("/api/now-playing"),
-          fetchJson("/api/recent?limit=8"),
+          fetchJson("/api/recent?limit=3&event=scrobble"),
         ]);
         const currentItem = currentPayload.item || null;
         const recentItems = Array.isArray(recentPayload.items) ? recentPayload.items : [];
@@ -754,6 +988,10 @@
           ? recentItems.map((item) => trackCardMarkup(item, true)).join("")
           : `<div class="empty-state">No tracks received yet. Start playing music to populate the feed.</div>`;
       } catch (error) {
+        if (error && (error.status === 401 || error.status === 403)) {
+          window.location.href = "/login";
+          return;
+        }
         console.error(error);
       }
     }
@@ -762,6 +1000,25 @@
       refreshHomeDashboard();
       setInterval(refreshHomeDashboard, 15000);
     }
+
+    document.addEventListener("click", async (event) => {
+      const trigger = event.target.closest("[data-copy]");
+      if (!trigger) return;
+      const value = trigger.getAttribute("data-copy") || "";
+      if (!value) return;
+      try {
+        await navigator.clipboard.writeText(value);
+        const original = trigger.textContent;
+        trigger.textContent = "Copied";
+        trigger.classList.add("is-copied");
+        setTimeout(() => {
+          trigger.textContent = original;
+          trigger.classList.remove("is-copied");
+        }, 1200);
+      } catch (error) {
+        console.error(error);
+      }
+    });
   </script>
 </body>
 </html>

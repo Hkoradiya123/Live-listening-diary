@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="auth-shell">
+    <div class="hero">
+      <span class="eyebrow">Private accounts, separate libraries</span>
+      <h1>Sign in to your listening diary</h1>
+      <p>
+        Each account keeps its own playback history, current track, and webhook token. Log in once, then use the
+        per-user webhook URL in Web Scrobbler so every listener stays isolated.
+      </p>
+      <div class="hero-meta">
+        <span class="pill pill--live"><span class="pulse"></span> Per-user webhook token</span>
+        <span class="pill pill--muted">Fast server-rendered pages</span>
+        <span class="pill pill--muted">Supabase Postgres backing</span>
+      </div>
+
+      <div class="stack" style="margin-top: 1rem;">
+        <article class="panel">
+          <h3>What gets isolated</h3>
+          <div class="data-grid">
+            <div class="data-row"><span>History</span><strong>Tracks, scrobbles, likes</strong></div>
+            <div class="data-row"><span>State</span><strong>Now playing and paused status</strong></div>
+            <div class="data-row"><span>Webhook</span><strong>Unique token per account</strong></div>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <div class="auth-grid">
+      {% if auth_error %}
+        <div class="notice">{{ auth_error }}</div>
+      {% endif %}
+
+      <article class="auth-card">
+        <h2>Sign in</h2>
+        <p>Return to an existing account and continue where you left off.</p>
+        <form class="auth-form" method="post" action="/login">
+          <label class="field">
+            <span>Email</span>
+            <input type="email" name="email" value="{{ email_value }}" autocomplete="email" required>
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input type="password" name="password" autocomplete="current-password" required>
+          </label>
+          <div class="split-actions">
+            <button class="button button--solid" type="submit">Sign in</button>
+            <span class="field-help">Secure session cookie, no shared account state.</span>
+          </div>
+        </form>
+      </article>
+
+      <article class="auth-card">
+        <h2>Create account</h2>
+        <p>New accounts get a private dashboard plus a dedicated webhook token.</p>
+        <form class="auth-form" method="post" action="/register">
+          <label class="field">
+            <span>Display name</span>
+            <input type="text" name="display_name" placeholder="Your name" autocomplete="nickname">
+          </label>
+          <label class="field">
+            <span>Email</span>
+            <input type="email" name="email" value="{{ email_value }}" autocomplete="email" required>
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input type="password" name="password" autocomplete="new-password" minlength="8" required>
+            <span class="field-help">Use at least 8 characters.</span>
+          </label>
+          <div class="split-actions">
+            <button class="button button--solid" type="submit">Create account</button>
+            <span class="field-help">The webhook token is generated automatically after signup.</span>
+          </div>
+        </form>
+      </article>
+    </div>
+  </section>
+{% endblock %}

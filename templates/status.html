@@ -2,71 +2,117 @@
 
 {% block content %}
   <section class="hero">
-    <span class="eyebrow">Webhook and API status</span>
-    <h1>Integration</h1>
+    <span class="eyebrow">Account settings</span>
+    <h1>Account</h1>
     <p>
-      Use this page to wire Web Scrobbler into Live listening diary. The endpoint is intentionally lightweight so the webhook
-      can return quickly and keep the dashboard live without background jobs or filesystem storage.
+      Webhook details for this account. This dashboard only shows data owned by {{ current_user.display_name }}.
     </p>
     <div class="hero-meta">
-      <span class="pill pill--live">POST /api/webhook</span>
-      <span class="pill pill--muted">Protected by secret token</span>
-      <span class="pill pill--muted">JSON ingest + PostgreSQL</span>
+      <span class="pill pill--live">Private account</span>
+      <span class="pill pill--muted">{{ current_user.email }}</span>
+      <span class="pill pill--muted">Settings and stats</span>
     </div>
   </section>
 
-  <section class="section">
-    <div class="doc-grid">
-      <article class="doc-card">
-        <h3>Webhook Endpoint</h3>
-        <p>Send a JSON POST request to <strong>/api/webhook</strong> with one of these auth methods:</p>
-        <ul>
-          <li><code>X-Recently-Played-Token: &lt;WEBHOOK_SECRET&gt;</code></li>
-          <li><code>Authorization: Bearer &lt;WEBHOOK_SECRET&gt;</code></li>
-          <li><code>POST /api/webhook/&lt;WEBHOOK_SECRET&gt;</code></li>
-        </ul>
-        <p>Supported event types: nowplaying, paused, resumedplaying, scrobble, loved.</p>
-      </article>
+  <div class="dashboard-shell">
+    <div class="stack">
+      <section class="section">
+        <div class="section-header">
+          <div>
+            <h2>Webhook details for this account</h2>
+            <p>Copy the URL or token into Web Scrobbler.</p>
+          </div>
+        </div>
 
-      <article class="doc-card">
-        <h3>API Routes</h3>
-        <ul>
-          <li><code>/api/recent</code> - latest events JSON</li>
-          <li><code>/api/now-playing</code> - current display card JSON</li>
-          <li><code>/api/status</code> - summary and route info</li>
-          <li><code>/history</code> - full playback timeline</li>
-        </ul>
-        <p>The webhook stores only the useful display fields and prunes old rows so the app stays lightweight on Hobby.</p>
-      </article>
+        <article class="panel">
+          <h3>{{ current_user.display_name }}</h3>
+          <p>{{ current_user.email }}</p>
+          <div class="data-grid">
+            <div class="data-row">
+              <span>Webhook URL</span>
+              <strong>{{ webhook_endpoint }}</strong>
+            </div>
+            <div class="data-row">
+              <span>Webhook token</span>
+              <strong>{{ webhook_token }}</strong>
+            </div>
+          </div>
+          <div class="copy-row">
+            <button class="button button--ghost" type="button" data-copy="{{ webhook_endpoint }}">Copy URL</button>
+            <button class="button button--solid" type="button" data-copy="{{ webhook_token }}">Copy token</button>
+          </div>
+          <p class="field-help" style="margin-top: 0.85rem;">
+            Paste the token into Web Scrobbler or use the full webhook URL if your sender supports path-based auth.
+          </p>
+        </article>
+      </section>
 
-      <article class="doc-card">
-        <h3>Example Payload</h3>
-        <pre>{
-  "event": "scrobble",
-  "song": {
-    "artist": "Carly Rae Jepsen",
-    "track": "Run Away With Me",
-    "album": "Emotion",
-    "artwork": "https://example.com/art.jpg",
-    "url": "https://example.com/track",
-    "timestamp": "2026-04-21T18:14:00Z",
-    "loved": false
-  }
-}</pre>
-      </article>
+      <section class="section">
+        <div class="section-header">
+          <div>
+            <h2>Other settings</h2>
+            <p>Current account context and session info.</p>
+          </div>
+        </div>
 
-      <article class="doc-card">
-        <h3>Response Shape</h3>
-        <pre>{
-  "ok": true,
-  "deduped": false,
-  "stored_event": {
-    "artist": "...",
-    "track": "...",
-    "received_at": "..."
-  }
-}</pre>
-      </article>
+        <article class="panel">
+          <div class="data-grid">
+            <div class="data-row">
+              <span>Display name</span>
+              <strong>{{ current_user.display_name }}</strong>
+            </div>
+            <div class="data-row">
+              <span>Email</span>
+              <strong>{{ current_user.email }}</strong>
+            </div>
+            <div class="data-row">
+              <span>Timezone</span>
+              <strong>{{ display_timezone }}</strong>
+            </div>
+            <div class="data-row">
+              <span>Webhook path</span>
+              <strong>/api/webhook/&lt;token&gt;</strong>
+            </div>
+          </div>
+        </article>
+      </section>
     </div>
-  </section>
+
+    <aside class="stack">
+      <section class="section">
+        <div class="section-header">
+          <div>
+            <h2>Summary Stats</h2>
+            <p>Quick snapshot of this account only.</p>
+          </div>
+        </div>
+
+        <div class="summary-grid">
+          <article class="card summary-card">
+            <h3>Total Scrobbles</h3>
+            <strong>{{ stats.total_scrobbles }}</strong>
+            <p>Completed listens stored for your account.</p>
+          </article>
+          <article class="card summary-card">
+            <h3>Last Updated</h3>
+            <strong>{{ stats.last_updated }}</strong>
+            <p>Most recent webhook event received.</p>
+          </article>
+          <article class="card summary-card">
+            <h3>Most Played Artist</h3>
+            <strong>{{ stats.top_artist }}</strong>
+            <p>Top artist from your scrobbled tracks.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <article class="panel">
+          <p class="footer-note">
+            This dashboard only shows data owned by {{ current_user.display_name }}.
+          </p>
+        </article>
+      </section>
+    </aside>
+  </div>
 {% endblock %}

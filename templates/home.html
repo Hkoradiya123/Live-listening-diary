@@ -2,83 +2,83 @@
 
 {% block content %}
   <section class="hero">
-    <span class="eyebrow">Live scrobble feed powered by Web Scrobbler</span>
-    <h1>{{ app_name }}</h1>
+    <span class="eyebrow">Private listening dashboard</span>
+    <h1>Hi, {{ current_user.display_name }}</h1>
     <p>
-      A public music diary that shows what is playing right now, what just scrobbled, and the recent listening trail
-      behind it. The page is built for Vercel Hobby, stays stateless, and keeps the latest music visible at a glance.
+      This account owns its own history, current playback state, and webhook token. Webhook events are stored under
+      your user record only, so nothing bleeds across accounts.
     </p>
     <div class="hero-meta">
       <span class="pill pill--live"><span class="pulse"></span> Live webhook ingestion</span>
-      <span class="pill pill--muted">Fast server-rendered pages</span>
-      <span class="pill pill--muted">PostgreSQL persistence</span>
+      <span class="pill pill--muted">{{ current_user.email }}</span>
+      <span class="pill pill--muted">Timezone: {{ display_timezone }}</span>
     </div>
   </section>
 
-  <section class="section" data-dashboard>
-    <div class="section-header">
-      <div>
-        <h2>Current Track</h2>
-        <p>Most recent visible listening state.</p>
-      </div>
-      <div class="pill pill--muted">Timezone: {{ display_timezone }}</div>
-    </div>
-
-    <div data-current-track>
-      {% if current_card %}
-        <article class="card current-card">
-          <div class="card-inner">
-            <div class="art">
-              <img src="{{ current_card.artwork_url }}" alt="{{ current_card.artist }} - {{ current_card.track }}">
-            </div>
-            <div class="card-copy">
-              <div class="meta-row">
-                <span class="{{ current_card.badge_class }}">{{ current_card.badge_label }}</span>
-                <span class="timestamp" title="{{ current_card.received_at_exact }}">{{ current_card.received_at_human }}</span>
-              </div>
-              <h2 class="track-title">
-                {% if current_card.track_url %}<a href="{{ current_card.track_url }}" target="_blank" rel="noreferrer">{% endif %}
-                {{ current_card.track }}
-                {% if current_card.track_url %}</a>{% endif %}
-              </h2>
-              <p class="track-subtitle">
-                {% if current_card.artist_url %}
-                  <a href="{{ current_card.artist_url }}" target="_blank" rel="noreferrer"><strong>{{ current_card.artist }}</strong></a>
-                {% else %}
-                  <strong>{{ current_card.artist }}</strong>
-                {% endif %}
-                {% if current_card.album %}
-                  <span class="sep">•</span>
-                  {% if current_card.album_url %}
-                    <a href="{{ current_card.album_url }}" target="_blank" rel="noreferrer">{{ current_card.album }}</a>
-                  {% else %}
-                    <span>{{ current_card.album }}</span>
-                  {% endif %}
-                {% endif %}
-              </p>
-              <div class="track-links">
-                {% if current_card.track_url %}<a class="link-chip" href="{{ current_card.track_url }}" target="_blank" rel="noreferrer">Track</a>{% endif %}
-                {% if current_card.artist_url %}<a class="link-chip" href="{{ current_card.artist_url }}" target="_blank" rel="noreferrer">Artist</a>{% endif %}
-                {% if current_card.album_url %}<a class="link-chip" href="{{ current_card.album_url }}" target="_blank" rel="noreferrer">Album</a>{% endif %}
-              </div>
-            </div>
-          </div>
-        </article>
-      {% else %}
-        <div class="empty-state">
-          No tracks received yet. Start playing music to populate the feed.
+  <div class="stack" data-dashboard>
+    <section class="section">
+      <div class="section-header">
+        <div>
+          <h2>Current Track</h2>
+          <p>Most recent visible listening state for this account.</p>
         </div>
-      {% endif %}
-    </div>
-  </section>
+      </div>
 
-  <div class="grid-hero">
+      <div data-current-track>
+        {% if current_card %}
+          <article class="card current-card">
+            <div class="card-inner">
+              <div class="art">
+                <img src="{{ current_card.artwork_url }}" alt="{{ current_card.artist }} - {{ current_card.track }}">
+              </div>
+              <div class="card-copy">
+                <div class="meta-row">
+                  <span class="{{ current_card.badge_class }}">{{ current_card.badge_label }}</span>
+                  <span class="timestamp" title="{{ current_card.received_at_exact }}">{{ current_card.received_at_human }}</span>
+                </div>
+                <h2 class="track-title">
+                  {% if current_card.track_url %}<a href="{{ current_card.track_url }}" target="_blank" rel="noreferrer">{% endif %}
+                  {{ current_card.track }}
+                  {% if current_card.track_url %}</a>{% endif %}
+                </h2>
+                <p class="track-subtitle">
+                  {% if current_card.artist_url %}
+                    <a href="{{ current_card.artist_url }}" target="_blank" rel="noreferrer"><strong>{{ current_card.artist }}</strong></a>
+                  {% else %}
+                    <strong>{{ current_card.artist }}</strong>
+                  {% endif %}
+                  {% if current_card.album %}
+                    <span class="sep">&middot;</span>
+                    {% if current_card.album_url %}
+                      <a href="{{ current_card.album_url }}" target="_blank" rel="noreferrer">{{ current_card.album }}</a>
+                    {% else %}
+                      <span>{{ current_card.album }}</span>
+                    {% endif %}
+                  {% endif %}
+                </p>
+                <div class="track-links">
+                  {% if current_card.track_url %}<a class="link-chip" href="{{ current_card.track_url }}" target="_blank" rel="noreferrer">Track</a>{% endif %}
+                  {% if current_card.artist_url %}<a class="link-chip" href="{{ current_card.artist_url }}" target="_blank" rel="noreferrer">Artist</a>{% endif %}
+                  {% if current_card.album_url %}<a class="link-chip" href="{{ current_card.album_url }}" target="_blank" rel="noreferrer">Album</a>{% endif %}
+                </div>
+              </div>
+            </div>
+          </article>
+        {% else %}
+          <div class="empty-state">
+            No tracks received yet. Start playing music to populate the feed.
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
     <section class="section">
       <div class="section-header">
         <div>
           <h2>Recent Tracks</h2>
-          <p>The latest 8 listening events.</p>
+          <p>The latest three scrobbles on this account.</p>
         </div>
+        <a class="link-chip" href="/history?event=scrobble&limit=100">Open history</a>
       </div>
 
       <div class="track-list" data-recent-tracks>
@@ -105,7 +105,7 @@
                     <strong>{{ item.artist }}</strong>
                   {% endif %}
                   {% if item.album %}
-                    <span class="sep">•</span>
+                    <span class="sep">&middot;</span>
                     {% if item.album_url %}
                       <a href="{{ item.album_url }}" target="_blank" rel="noreferrer">{{ item.album }}</a>
                     {% else %}
@@ -120,37 +120,6 @@
           <div class="empty-state">No tracks received yet. Start playing music to populate the feed.</div>
         {% endif %}
       </div>
-    </section>
-
-    <section class="section">
-      <div class="section-header">
-        <div>
-          <h2>Summary Stats</h2>
-          <p>Quick snapshot of the listening diary.</p>
-        </div>
-      </div>
-
-      <div class="summary-grid">
-        <article class="card summary-card">
-          <h3>Total Scrobbles</h3>
-          <strong>{{ stats.total_scrobbles }}</strong>
-          <p>Completed listens stored in the feed.</p>
-        </article>
-        <article class="card summary-card">
-          <h3>Last Updated</h3>
-          <strong>{{ stats.last_updated }}</strong>
-          <p>Most recent webhook event received.</p>
-        </article>
-        <article class="card summary-card">
-          <h3>Most Played Artist</h3>
-          <strong>{{ stats.top_artist }}</strong>
-          <p>Top artist from scrobbled tracks.</p>
-        </article>
-      </div>
-
-      <p class="footer-note">
-        This dashboard updates automatically from the webhook and can be embedded or shared as a public profile page.
-      </p>
     </section>
   </div>
 {% endblock %}

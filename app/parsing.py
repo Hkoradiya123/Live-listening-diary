@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 
 EVENT_ALIASES = {
@@ -91,9 +94,41 @@ def _coerce_datetime(value: Any) -> datetime | None:
 
 
 def _nested_text(value: Any, *keys: str) -> str | None:
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            if isinstance(item, dict):
+                nested = _first_non_empty(*(_as_text(item.get(key)) for key in keys))
+                if nested:
+                    return nested
+        return None
     if not isinstance(value, dict):
         return _as_text(value)
     return _first_non_empty(*(_as_text(value.get(key)) for key in keys))
+
+
+def _normalize_key_name(key: str) -> str:
+    return "".join(ch for ch in key.lower() if ch.isalnum())
+
+
+def _deep_find_text(value: Any, normalized_key_candidates: set[str]) -> str | None:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if _normalize_key_name(str(key)) in normalized_key_candidates:
+                direct = _as_text(item)
+                if direct:
+                    return direct
+                nested = _nested_text(item, "name", "title", "text")
+                if nested:
+                    return nested
+            discovered = _deep_find_text(item, normalized_key_candidates)
+            if discovered:
+                return discovered
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            discovered = _deep_find_text(item, normalized_key_candidates)
+            if discovered:
+                return discovered
+    return None
 
 
 def _extract_artwork(value: Any) -> str | None:
@@ -113,10 +148,71 @@ def _extract_artwork(value: Any) -> str | None:
     return None
 
 
+def _is_valid_youtube_id(value: str | None) -> bool:
+    if not value:
+        return False
+    return bool(re.fullmatch(r"[A-Za-z0-9_-]{11}", value))
+
+
+def _extract_youtube_video_id(value: Any) -> str | None:
+    text = _as_text(value)
+    if not text:
+        return None
+
+    if _is_valid_youtube_id(text):
+        return text
+
+    try:
+        parsed = urlparse(text)
+    except Exception:
+        return None
+
+    host = (parsed.netloc or "").lower()
+    path = (parsed.path or "").strip("/")
+
+    if "youtu.be" in host:
+        candidate = path.split("/", 1)[0]
+        return candidate if _is_valid_youtube_id(candidate) else None
+
+    if "youtube.com" in host or "music.youtube.com" in host:
+        if path == "watch":
+            candidate = parse_qs(parsed.query).get("v", [None])[0]
+            return candidate if _is_valid_youtube_id(candidate) else None
+        if path.startswith("shorts/"):
+            candidate = path.split("/", 1)[1].split("/", 1)[0]
+            return candidate if _is_valid_youtube_id(candidate) else None
+        if path.startswith("embed/"):
+            candidate = path.split("/", 1)[1].split("/", 1)[0]
+            return candidate if _is_valid_youtube_id(candidate) else None
+
+    return None
+
+
+def _youtube_thumbnail_url(video_id: str | None) -> str | None:
+    if not _is_valid_youtube_id(video_id):
+        return None
+    return f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+
+
+def _maybe_json_dict(value: Any) -> dict[str, Any] | None:
+    if isinstance(value, dict):
+        return value
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text or text[:1] not in {"{", "["}:
+        return None
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
 def _pick_song_object(payload: dict[str, Any]) -> dict[str, Any]:
-    for key in ("song", "track", "data", "payload"):
-        candidate = payload.get(key)
-        if isinstance(candidate, dict):
+    for key in ("song", "track", "data", "payload", "current", "currentTrack", "metadata", "media"):
+        candidate = _maybe_json_dict(payload.get(key))
+        if candidate:
             return candidate
     return payload
 
@@ -131,37 +227,77 @@ def parse_webhook_payload(payload: dict[str, Any]) -> ParsedWebhookEvent:
         raise ValueError("Webhook payload must be a JSON object.")
 
     song = _pick_song_object(payload)
-    event_type = normalize_event_type(_first_non_empty(payload.get("event"), payload.get("type"), payload.get("action")))
+    event_type = normalize_event_type(
+        _first_non_empty(
+            payload.get("event"),
+            payload.get("eventName"),
+            payload.get("type"),
+            payload.get("action"),
+            _nested_text(payload.get("data"), "event", "eventName", "type", "action"),
+        )
+    )
 
     artist = _first_non_empty(
         _as_text(song.get("artist")),
+        _as_text(song.get("artistName")),
+        _as_text(song.get("artist_name")),
         _as_text(payload.get("artist")),
+        _as_text(payload.get("artistName")),
+        _as_text(payload.get("artist_name")),
         _nested_text(song.get("artist"), "name", "title", "text"),
         _nested_text(payload.get("artist"), "name", "title", "text"),
+        _nested_text(song.get("artists"), "name", "title", "text"),
+        _nested_text(payload.get("artists"), "name", "title", "text"),
+        _deep_find_text(song, {"artist", "artistname", "artisttitle", "performer", "creator", "author", "band", "artists"}),
+        _deep_find_text(payload, {"artist", "artistname", "artisttitle", "performer", "creator", "author", "band", "artists"}),
     )
     track = _first_non_empty(
         _as_text(song.get("track")),
         _as_text(song.get("title")),
+        _as_text(song.get("name")),
+        _as_text(song.get("song")),
+        _as_text(song.get("trackName")),
+        _as_text(song.get("track_name")),
         _as_text(payload.get("track")),
         _as_text(payload.get("title")),
         _as_text(payload.get("name")),
+        _as_text(payload.get("song")),
+        _as_text(payload.get("trackName")),
+        _as_text(payload.get("track_name")),
+        _deep_find_text(song, {"track", "trackname", "title", "song", "songname", "video", "videotitle"}),
+        _deep_find_text(payload, {"track", "trackname", "title", "song", "songname", "video", "videotitle"}),
     )
     album = _first_non_empty(
         _as_text(song.get("album")),
         _as_text(song.get("album_name")),
         _as_text(payload.get("album")),
         _as_text(payload.get("album_name")),
+        _deep_find_text(song, {"album", "albumname", "record", "release"}),
+        _deep_find_text(payload, {"album", "albumname", "record", "release"}),
     )
-    if not artist or not track:
-        raise ValueError("Webhook payload is missing artist or track information.")
+    if (not artist or artist == "Unknown artist") and track and " - " in track:
+        possible_artist, possible_track = [segment.strip() for segment in track.split(" - ", 1)]
+        if possible_artist and possible_track:
+            artist = possible_artist
+            track = possible_track
+    if not artist:
+        artist = "Unknown artist"
+    if not track:
+        track = "Untitled track"
 
     artwork_url = _first_non_empty(
         _extract_artwork(song.get("artwork")),
         _extract_artwork(song.get("image")),
         _extract_artwork(song.get("images")),
         _extract_artwork(song.get("cover")),
+        _as_text(song.get("trackArt")),
+        _as_text(song.get("trackArtUrl")),
         _extract_artwork(payload.get("artwork")),
         _extract_artwork(payload.get("image")),
+        _as_text(payload.get("trackArt")),
+        _as_text(payload.get("trackArtUrl")),
+        _deep_find_text(song, {"trackart", "trackarturl", "artwork", "image", "thumbnail", "thumb", "cover", "coverurl"}),
+        _deep_find_text(payload, {"trackart", "trackarturl", "artwork", "image", "thumbnail", "thumb", "cover", "coverurl"}),
     )
     artist_url = _first_non_empty(
         _as_text(song.get("artist_url")),
@@ -174,8 +310,12 @@ def parse_webhook_payload(payload: dict[str, Any]) -> ParsedWebhookEvent:
         _as_text(song.get("track_url")),
         _as_text(song.get("trackUrl")),
         _as_text(song.get("url")),
+        _as_text(song.get("originUrl")),
         _as_text(payload.get("track_url")),
         _as_text(payload.get("url")),
+        _as_text(payload.get("originUrl")),
+        _deep_find_text(song, {"trackurl", "originurl", "url", "video", "videourl"}),
+        _deep_find_text(payload, {"trackurl", "originurl", "url", "video", "videourl"}),
     )
     album_url = _first_non_empty(
         _as_text(song.get("album_url")),
@@ -192,6 +332,17 @@ def parse_webhook_payload(payload: dict[str, Any]) -> ParsedWebhookEvent:
         _coerce_datetime(payload.get("date")),
     )
     loved = _coerce_bool(_first_non_empty(song.get("loved"), song.get("liked"), payload.get("loved"), payload.get("liked"))) or False
+
+    if not artwork_url:
+        youtube_video_id = _first_non_empty(
+            _extract_youtube_video_id(track_url),
+            _extract_youtube_video_id(song.get("uniqueID")),
+            _extract_youtube_video_id(song.get("originUrl")),
+            _extract_youtube_video_id(payload.get("originUrl")),
+            _extract_youtube_video_id(_deep_find_text(song, {"uniqueid", "originurl", "videoid", "identifier", "url"})),
+            _extract_youtube_video_id(_deep_find_text(payload, {"uniqueid", "originurl", "videoid", "identifier", "url"})),
+        )
+        artwork_url = _youtube_thumbnail_url(youtube_video_id)
 
     is_now_playing = event_type in {"nowplaying", "resumedplaying"}
     is_paused = event_type == "paused"
