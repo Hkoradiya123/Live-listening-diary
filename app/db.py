@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool, StaticPool
 
 
 class Base(DeclarativeBase):
@@ -18,6 +18,11 @@ def build_engine(database_url: str):
         engine_kwargs["connect_args"] = {"check_same_thread": False}
         if ":memory:" in database_url:
             engine_kwargs["poolclass"] = StaticPool
+    elif "pooler.supabase.com" in database_url or ":6543/" in database_url:
+        # Supabase transaction pooler does not support prepared statements.
+        # NullPool keeps SQLAlchemy from holding onto serverless connections.
+        engine_kwargs["poolclass"] = NullPool
+        engine_kwargs["connect_args"] = {"prepare_threshold": None}
     return create_engine(database_url, **engine_kwargs)
 
 
@@ -40,4 +45,3 @@ def session_scope(session_factory):
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
-
