@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from html import escape
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import parse_qs
@@ -33,6 +34,8 @@ from .repository import (
     store_event,
 )
 from .utils import PLACEHOLDER_ART_URL, serialize_event, serialize_state
+import base64
+import requests
 
 
 logger = logging.getLogger("uvicorn.error")
@@ -623,6 +626,210 @@ def create_app(
             )
         except SQLAlchemyError as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Database error: {exc}") from exc
+    @app.get("/api/public/now-playing.svg/{token}")
+    def now_playing_svg_public(token: str, session=Depends(get_session)):
+        if session is None:
+            return Response("Database not configured", status_code=503)
+
+        # 🔐 Token-based user lookup (NO cookies)
+        user = session.scalar(
+            select(UserAccount).where(UserAccount.webhook_token == token)
+        )
+        if user is None:
+            return Response("Invalid token", status_code=404)
+
+        # 🎧 Get current track (your existing logic)
+        current = current_card(session, user.id, timezone_name=settings.display_timezone)
+
+        if not current:
+            svg = """
+            <svg width="420" height="120" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100%" height="100%" rx="16" fill="#0f172a"/>
+            <text x="20" y="65" fill="#94a3b8" font-size="16">
+                🎧 Nothing playing
+            </text>
+            </svg>
+            """
+            return Response(content=svg, media_type="image/svg+xml")
+
+        title = current.get("track", "Unknown")
+        artist = current.get("artist", "Unknown")
+        cover = current.get("artwork_url") or PLACEHOLDER_ART_URL
+        track_url = current.get("track_url")
+
+        title_text = escape(str(title))
+        artist_text = escape(str(artist))
+        cover_attr = escape(str(cover), quote=True)
+        track_href = escape(str(track_url), quote=True) if track_url else ""
+        card_open = f'<a href="{track_href}" target="_blank">' if track_href else ""
+        card_close = "</a>" if track_href else ""
+
+        svg = f"""
+            <svg width="450" height="130" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#0f172a"/>
+                <stop offset="100%" stop-color="#1e293b"/>
+                </linearGradient>
+            </defs>
+
+            <rect width="100%" height="100%" rx="18" fill="url(#bg)"/>
+
+            {card_open}
+            <image href="{cover_attr}" x="15" y="25" width="80" height="80"/>
+
+            <text x="110" y="50" fill="#22c55e" font-size="13">
+                🎧 Now Playing
+            </text>
+
+            <text x="110" y="75" fill="#ffffff" font-size="17" font-weight="bold">
+                {title_text}
+            </text>
+
+            <text x="110" y="100" fill="#94a3b8" font-size="14">
+                {artist_text}
+            </text>
+            {card_close}
+            </svg>
+                """
+
+        return Response(
+            content=svg,
+            media_type="image/svg+xml",
+            headers={"Cache-Control": "s-maxage=60"}
+        )
+        
+        
+
+    @app.get("/api/public/recent.svg/{token}")
+    def recent_svg(token: str, session=Depends(get_session)):
+        if session is None:
+            return Response("DB not ready", status_code=503)
+
+        user = session.scalar(
+            select(UserAccount).where(UserAccount.webhook_token == token)
+        )
+        if not user:
+            return Response("Invalid token", status_code=404)
+
+        tracks = recent_events(
+            session,
+            user.id,
+            limit=3,
+            timezone_name=settings.display_timezone,
+            event_type="scrobble"
+        )
+
+        def get_base64_image(url):
+            if not url:
+                return PLACEHOLDER_ART_URL
+            if isinstance(url, str) and url.startswith("data:image"):
+                return url
+            try:
+                r = requests.get(url, timeout=3)
+                if r.status_code == 200:
+                    content_type = r.headers.get("Content-Type", "image/jpeg").split(";", 1)[0]
+                    encoded = base64.b64encode(r.content).decode("utf-8")
+                    return f"data:{content_type};base64,{encoded}"
+            except:
+                pass
+            return PLACEHOLDER_ART_URL
+
+        cards = ""
+        x = 20
+
+        for t in tracks:
+            title = t.get("track", "Unknown")
+            artist = t.get("artist", "Unknown")
+            image_url = t.get("artwork_url") or PLACEHOLDER_ART_URL
+            time = t.get("received_at_human", "just now")
+            track_url = t.get("track_url")
+
+            image_base64 = get_base64_image(image_url)
+            title_text = escape(str(title[:22]))
+            artist_text = escape(str(artist[:22]))
+            time_text = escape(str(time))
+            image_attr = escape(str(image_base64), quote=True)
+            track_href = escape(str(track_url), quote=True) if track_url else ""
+            card_open = f'<a href="{track_href}" target="_blank">' if track_href else ""
+            card_close = "</a>" if track_href else ""
+
+            cards += f"""
+            <g transform="translate({x},40)">
+            {card_open}
+            <!-- Card -->
+            <rect width="260" height="100" rx="16" fill="#0f172a"/>
+
+            <!-- Blurred background -->
+            <image href="{image_attr}" x="0" y="0" width="260" height="100"
+                    opacity="0.25" filter="url(#blur)" preserveAspectRatio="xMidYMid slice"/>
+
+            <!-- Cover -->
+            <image href="{image_attr}" x="10" y="15" width="70" height="70" rx="10"/>
+
+            <!-- Title -->
+            <text x="90" y="40" fill="#ffffff" font-size="14" font-weight="bold">
+                {title_text}
+            </text>
+
+            <!-- Artist -->
+            <text x="90" y="60" fill="#cbd5f5" font-size="12">
+                {artist_text}
+            </text>
+
+            <!-- Time -->
+            <text x="90" y="80" fill="#a78bfa" font-size="11">
+                {time_text}
+            </text>
+
+            <!-- Play button -->
+            <circle cx="230" cy="50" r="14" fill="#1e293b"/>
+            <polygon points="225,43 225,57 238,50" fill="#e2e8f0"/>
+            {card_close}
+            </g>
+            """
+
+            x += 280
+
+        svg = f"""
+        <svg width="900" height="160" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <filter id="blur">
+            <feGaussianBlur stdDeviation="12"/>
+            </filter>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#020617"/>
+
+        <!-- Header -->
+        <text x="20" y="25" fill="#e2e8f0" font-size="18" font-weight="bold">
+            Recently Played
+        </text>
+
+        {cards}
+        </svg>
+            """
+
+        return Response(
+            content=svg,
+            media_type="image/svg+xml",
+            headers={"Cache-Control": "s-maxage=60"}
+        )
+    @app.get("/api/public/stats.svg/{token}")
+    def stats_svg(token: str, session=Depends(get_session)):
+        user = session.scalar(select(UserAccount).where(UserAccount.webhook_token == token))
+        stats = stats_summary(session, user.id)
+
+        svg = f"""
+        <svg width="420" height="120" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="#0f172a" rx="12"/>
+        <text x="20" y="40" fill="#22c55e">📊 Stats</text>
+        <text x="20" y="70" fill="#fff">Total: {stats['total_scrobbles']}</text>
+        <text x="20" y="95" fill="#94a3b8">Top: {stats['top_artist']}</text>
+        </svg>
+        """
+
+        return Response(svg, media_type="image/svg+xml")
 
     @app.post("/api/webhook")
     @app.post("/api/webhook/{path_token}")
