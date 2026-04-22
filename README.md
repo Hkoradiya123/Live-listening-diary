@@ -40,6 +40,10 @@ Set these in Vercel:
 - `/api/now-playing` - current track JSON for the logged-in account
 - `/api/status` - account status JSON
 
+## Docs
+
+- [API usage guide](docs/API_USAGE.md) - authentication, fetch examples, webhook usage, and GitHub display workflow
+
 ## Webhook
 
 Each account gets its own webhook token. Open `/account` after signing in to copy the token and endpoint.

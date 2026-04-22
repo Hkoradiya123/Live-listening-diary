@@ -257,3 +257,40 @@ def test_account_page_exposes_webhook_details():
     assert account_response.status_code == 200
     assert webhook_token in account_response.text
     assert "/api/webhook/" in account_response.text
+
+
+def test_public_webhook_read_endpoint_fetches_data_without_login():
+    app = create_app(
+        database_url="sqlite+pysqlite:///:memory:",
+        display_timezone="UTC",
+    )
+    owner_client = TestClient(app)
+    public_client = TestClient(app)
+
+    token = register_user(owner_client, "alice@example.com", "password123", "Alice")
+    owner_client.post(
+        f"/api/webhook/{token}",
+        json={
+            "event": "scrobble",
+            "song": {
+                "artist": "Seedhe Maut",
+                "track": "Raat Ki Rani",
+                "album": "SHAKTI",
+            },
+        },
+    )
+
+    response = public_client.get(f"/api/webhook/{token}?event=scrobble&limit=3")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    assert payload["user"]["display_name"] == "Alice"
+    assert payload["event"] == "scrobble"
+    assert payload["recent"]
+    assert payload["recent"][0]["artist"] == "Seedhe Maut"
+
+
+def test_public_webhook_read_endpoint_rejects_invalid_token():
+    client = build_client()
+    response = client.get("/api/webhook/not-a-valid-token")
+    assert response.status_code == 403

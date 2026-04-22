@@ -574,6 +574,53 @@ def create_app(
         except SQLAlchemyError as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Database error: {exc}") from exc
 
+    @app.get("/api/webhook")
+    @app.get("/api/webhook/{path_token}")
+    def api_webhook_public_read(
+        request: Request,
+        path_token: str | None = None,
+        limit: int = Query(default=settings.api_recent_limit, ge=1, le=50),
+        event: str = Query(default="scrobble"),
+        session=Depends(get_session),
+    ):
+        if session is None:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database is not configured.")
+
+        token = _resolve_token(request, path_token=path_token)
+        if not token:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid webhook token.")
+
+        user = session.scalar(select(UserAccount).where(UserAccount.webhook_token == token))
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid webhook token.")
+
+        try:
+            total_events = session.scalar(
+                select(func.count()).select_from(ListeningEvent).where(ListeningEvent.user_id == user.id)
+            ) or 0
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "user": {
+                        "display_name": user.display_name,
+                    },
+                    "now_playing": current_card(session, user.id, timezone_name=settings.display_timezone),
+                    "recent": recent_events(
+                        session,
+                        user.id,
+                        limit=limit,
+                        timezone_name=settings.display_timezone,
+                        event_type=event,
+                    ),
+                    "stats": stats_summary(session, user.id, timezone_name=settings.display_timezone),
+                    "count": int(total_events),
+                    "limit": limit,
+                    "event": event,
+                }
+            )
+        except SQLAlchemyError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Database error: {exc}") from exc
+
     @app.post("/api/webhook")
     @app.post("/api/webhook/{path_token}")
     async def webhook(request: Request, path_token: str | None = None, session=Depends(get_session)):
