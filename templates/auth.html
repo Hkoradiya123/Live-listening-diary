@@ -27,15 +27,36 @@
       </div>
     </div>
 
-    <div class="auth-grid">
+    <div class="auth-grid" data-auth-root data-auth-mode="{{ mode or 'login' }}">
       {% if auth_error %}
         <div class="notice">{{ auth_error }}</div>
       {% endif %}
 
-      <article class="auth-card">
+      <div class="auth-switch" role="tablist" aria-label="Authentication mode">
+        <button
+          type="button"
+          class="auth-switch__button{% if (mode or 'login') == 'login' %} is-active{% endif %}"
+          data-auth-tab="login"
+          role="tab"
+          aria-selected="{% if (mode or 'login') == 'login' %}true{% else %}false{% endif %}"
+        >
+          Login
+        </button>
+        <button
+          type="button"
+          class="auth-switch__button{% if (mode or 'login') == 'register' %} is-active{% endif %}"
+          data-auth-tab="register"
+          role="tab"
+          aria-selected="{% if (mode or 'login') == 'register' %}true{% else %}false{% endif %}"
+        >
+          Sign up
+        </button>
+      </div>
+
+      <article class="auth-card auth-pane" data-auth-pane="login" {% if (mode or 'login') != 'login' %}hidden{% endif %}>
         <h2>Sign in</h2>
         <p>Return to an existing account and continue where you left off.</p>
-        <form class="auth-form" method="post" action="/login">
+        <form class="auth-form" method="post" action="/login" data-loading-label="Signing in...">
           <label class="field">
             <span>Email</span>
             <input type="email" name="email" value="{{ email_value }}" autocomplete="email" required>
@@ -45,16 +66,16 @@
             <input type="password" name="password" autocomplete="current-password" required>
           </label>
           <div class="split-actions">
-            <button class="button button--solid" type="submit">Sign in</button>
+            <button class="button button--solid" type="submit" data-default-label="Sign in">Sign in</button>
             <span class="field-help">Secure session cookie, no shared account state.</span>
           </div>
         </form>
       </article>
 
-      <article class="auth-card">
+      <article class="auth-card auth-pane" data-auth-pane="register" {% if (mode or 'login') != 'register' %}hidden{% endif %}>
         <h2>Create account</h2>
         <p>New accounts get a private dashboard plus a dedicated webhook token.</p>
-        <form class="auth-form" method="post" action="/register">
+        <form class="auth-form" method="post" action="/register" data-loading-label="Creating account...">
           <label class="field">
             <span>Display name</span>
             <input type="text" name="display_name" placeholder="Your name" autocomplete="nickname">
@@ -69,11 +90,47 @@
             <span class="field-help">Use at least 8 characters.</span>
           </label>
           <div class="split-actions">
-            <button class="button button--solid" type="submit">Create account</button>
+            <button class="button button--solid" type="submit" data-default-label="Create account">Create account</button>
             <span class="field-help">The webhook token is generated automatically after signup.</span>
           </div>
         </form>
       </article>
     </div>
   </section>
+
+  <script>
+    (function () {
+      const root = document.querySelector("[data-auth-root]");
+      if (!root) return;
+
+      const tabs = Array.from(root.querySelectorAll("[data-auth-tab]"));
+      const panes = Array.from(root.querySelectorAll("[data-auth-pane]"));
+
+      function activate(mode) {
+        tabs.forEach((tab) => {
+          const isActive = tab.getAttribute("data-auth-tab") === mode;
+          tab.classList.toggle("is-active", isActive);
+          tab.setAttribute("aria-selected", isActive ? "true" : "false");
+        });
+        panes.forEach((pane) => {
+          pane.hidden = pane.getAttribute("data-auth-pane") !== mode;
+        });
+      }
+
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => activate(tab.getAttribute("data-auth-tab")));
+      });
+
+      root.querySelectorAll("form.auth-form").forEach((form) => {
+        form.addEventListener("submit", () => {
+          const submit = form.querySelector("button[type='submit']");
+          if (!submit) return;
+          submit.disabled = true;
+          submit.classList.add("is-loading");
+          const loadingLabel = form.getAttribute("data-loading-label") || "Please wait...";
+          submit.textContent = loadingLabel;
+        });
+      });
+    })();
+  </script>
 {% endblock %}

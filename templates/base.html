@@ -749,6 +749,45 @@
       gap: 1rem;
     }
 
+    .auth-switch {
+      display: inline-flex;
+      gap: 0.45rem;
+      padding: 0.3rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.03);
+      width: fit-content;
+    }
+
+    .auth-switch__button {
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 0.55rem 0.9rem;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 160ms ease;
+    }
+
+    .auth-switch__button:hover {
+      color: var(--text);
+      border-color: rgba(173, 188, 255, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .auth-switch__button.is-active {
+      color: var(--text);
+      border-color: rgba(96, 165, 250, 0.35);
+      background: rgba(96, 165, 250, 0.14);
+    }
+
+    .button.is-loading {
+      opacity: 0.85;
+      cursor: progress;
+    }
+
     .auth-form {
       display: grid;
       gap: 0.8rem;
