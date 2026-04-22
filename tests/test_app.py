@@ -280,7 +280,7 @@ def test_public_webhook_read_endpoint_fetches_data_without_login():
         },
     )
 
-    response = public_client.get(f"/api/webhook/{token}?event=scrobble&limit=3")
+    response = public_client.get(f"/api/public/{token}?event=scrobble&limit=3")
     assert response.status_code == 200
     payload = response.json()
     assert payload["ok"] is True
@@ -292,5 +292,5 @@ def test_public_webhook_read_endpoint_fetches_data_without_login():
 
 def test_public_webhook_read_endpoint_rejects_invalid_token():
     client = build_client()
-    response = client.get("/api/webhook/not-a-valid-token")
+    response = client.get("/api/public/not-a-valid-token")
     assert response.status_code == 403

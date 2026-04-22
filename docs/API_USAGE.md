@@ -23,7 +23,7 @@ There are two auth paths:
 - `/api/webhook/<token>`
 
 3. Webhook token auth for public read API (no email/password).
-- `GET /api/webhook/<token>`
+- `GET /api/public/<token>`
 - Returns now playing, recent items, and stats for that token owner.
 
 ## 1) Login and Fetch Private API Data
@@ -100,30 +100,30 @@ curl -X POST \
 
 ## 3) Fetch Data Directly Using Webhook URL (No Login Required)
 
-You can fetch data directly from the webhook URL using `GET`, without session login.
+You can fetch data directly from the public API URL using `GET`, without session login.
 
 ### Direct URL pattern
 
 ```text
-GET /api/webhook/<YOUR_WEBHOOK_TOKEN>
+GET /api/public/<YOUR_WEBHOOK_TOKEN>
 ```
 
 ### Your hosted example
 
 ```text
-http://jinksqspider-live-listening-diary.hf.space/api/webhook/<YOUR_WEBHOOK_TOKEN>
+http://jinksqspider-live-listening-diary.hf.space/api/public/<YOUR_WEBHOOK_TOKEN>
 ```
 
 ### Fetch only played songs (scrobbles)
 
 ```bash
-curl "http://jinksqspider-live-listening-diary.hf.space/api/webhook/<YOUR_WEBHOOK_TOKEN>?event=scrobble&limit=20"
+curl "http://jinksqspider-live-listening-diary.hf.space/api/public/<YOUR_WEBHOOK_TOKEN>?event=scrobble&limit=20"
 ```
 
 ### Fetch all event types
 
 ```bash
-curl "http://jinksqspider-live-listening-diary.hf.space/api/webhook/<YOUR_WEBHOOK_TOKEN>?event=all&limit=20"
+curl "http://jinksqspider-live-listening-diary.hf.space/api/public/<YOUR_WEBHOOK_TOKEN>?event=all&limit=20"
 ```
 
 ### Public read response shape
@@ -200,7 +200,7 @@ GitHub README is static, so fetch API data on a schedule, write output files, th
 Recommended flow:
 
 1. Use GitHub Actions cron job.
-2. Fetch from `GET /api/webhook/<token>?event=scrobble&limit=20`.
+2. Fetch from `GET /api/public/<token>?event=scrobble&limit=20`.
 3. Use `now_playing` and `recent` from response.
 4. Generate markdown snippet.
 5. Commit updated snippet to your repo.
@@ -227,7 +227,7 @@ jobs:
           APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
           WEBHOOK_TOKEN: ${{ secrets.WEBHOOK_TOKEN }}
         run: |
-          curl -s "${APP_BASE_URL}/api/webhook/${WEBHOOK_TOKEN}?event=scrobble&limit=20" > listening.json
+          curl -s "${APP_BASE_URL}/api/public/${WEBHOOK_TOKEN}?event=scrobble&limit=20" > listening.json
 
       - name: Build markdown block
         run: |

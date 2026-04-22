@@ -309,6 +309,7 @@ def create_app(
                 recent = []
                 stats = {"total_scrobbles": 0, "last_updated": "Database unavailable", "top_artist": "Database unavailable"}
         webhook_endpoint = f"{_absolute_base_url(request)}/api/webhook/{user.webhook_token}"
+        public_api_endpoint = f"{_absolute_base_url(request)}/api/public/{user.webhook_token}"
         return {
             "request": request,
             "title": title,
@@ -323,6 +324,7 @@ def create_app(
             "display_timezone": settings.display_timezone,
             "db_error": app.state.db_error,
             "webhook_endpoint": webhook_endpoint,
+            "public_api_endpoint": public_api_endpoint,
             "webhook_token": user.webhook_token,
             "webhook_header_example": user.webhook_token,
             "api_base_url": _absolute_base_url(request),
@@ -565,6 +567,7 @@ def create_app(
                     "display_name": user.display_name,
                 },
                 "webhook_endpoint": f"{_absolute_base_url(request)}/api/webhook/{user.webhook_token}",
+                "public_api_endpoint": f"{_absolute_base_url(request)}/api/public/{user.webhook_token}",
                 "supported_events": ["nowplaying", "paused", "resumedplaying", "scrobble", "loved"],
                 "recent_count": int(session.scalar(select(func.count()).select_from(ListeningEvent).where(ListeningEvent.user_id == user.id)) or 0),
                 "now_playing": current_card(session, user.id, timezone_name=settings.display_timezone),
@@ -574,8 +577,8 @@ def create_app(
         except SQLAlchemyError as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Database error: {exc}") from exc
 
-    @app.get("/api/webhook")
-    @app.get("/api/webhook/{path_token}")
+    @app.get("/api/public")
+    @app.get("/api/public/{path_token}")
     def api_webhook_public_read(
         request: Request,
         path_token: str | None = None,

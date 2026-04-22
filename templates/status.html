@@ -19,8 +19,8 @@
       <section class="section">
         <div class="section-header">
           <div>
-            <h2>Webhook details for this account</h2>
-            <p>Copy the URL or token into Web Scrobbler.</p>
+            <h2>Integration URLs for this account</h2>
+            <p>Use POST webhook for Web Scrobbler and GET public API for GitHub display.</p>
           </div>
         </div>
 
@@ -29,8 +29,12 @@
           <p>{{ current_user.email }}</p>
           <div class="data-grid">
             <div class="data-row">
-              <span>Webhook URL</span>
+              <span>Webhook URL (POST)</span>
               <strong>{{ webhook_endpoint }}</strong>
+            </div>
+            <div class="data-row">
+              <span>Public API URL (GET)</span>
+              <strong>{{ public_api_endpoint }}</strong>
             </div>
             <div class="data-row">
               <span>Webhook token</span>
@@ -38,11 +42,12 @@
             </div>
           </div>
           <div class="copy-row">
-            <button class="button button--ghost" type="button" data-copy="{{ webhook_endpoint }}">Copy URL</button>
+            <button class="button button--ghost" type="button" data-copy="{{ webhook_endpoint }}">Copy POST URL</button>
+            <button class="button button--ghost" type="button" data-copy="{{ public_api_endpoint }}">Copy GET URL</button>
             <button class="button button--solid" type="button" data-copy="{{ webhook_token }}">Copy token</button>
           </div>
           <p class="field-help" style="margin-top: 0.85rem;">
-            Paste the token into Web Scrobbler or use the full webhook URL if your sender supports path-based auth.
+            Web Scrobbler should POST to the webhook URL. GitHub/read clients should GET the public API URL.
           </p>
         </article>
       </section>
@@ -70,8 +75,12 @@
               <strong>{{ display_timezone }}</strong>
             </div>
             <div class="data-row">
-              <span>Webhook path</span>
+              <span>Webhook path (POST)</span>
               <strong>/api/webhook/&lt;token&gt;</strong>
+            </div>
+            <div class="data-row">
+              <span>Public path (GET)</span>
+              <strong>/api/public/&lt;token&gt;</strong>
             </div>
           </div>
         </article>
