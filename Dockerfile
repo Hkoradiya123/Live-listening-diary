@@ -16,8 +16,11 @@ RUN pip install --upgrade pip \
 
 COPY . .
 
-# ✅ CHANGE HERE
 EXPOSE 7860
 
-# ✅ CHANGE HERE
-CMD ["uvicorn", "api.index:app", "--host", "0.0.0.0", "--port", "7860"]
+# ✅ Added --proxy-headers (important for HTTPS platforms)
+CMD ["uvicorn", "api.index:app",
+     "--host", "0.0.0.0",
+     "--port", "7860",
+     "--proxy-headers",
+     "--forwarded-allow-ips", "*"]
