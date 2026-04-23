@@ -23,15 +23,21 @@ def _event_identity(event: ListeningEvent) -> tuple[str, str]:
     return _normalized_text(event.artist), _normalized_text(event.track)
 
 
+def _collapse_key(event: ListeningEvent) -> tuple[str, str] | None:
+    # Collapse consecutive rows for the same song regardless of event type.
+    # This keeps nowplaying/paused/scrobble transitions for one song as a single row in recent lists.
+    return _event_identity(event)
+
+
 def _collapse_consecutive_events(events: list[ListeningEvent]) -> list[ListeningEvent]:
     collapsed: list[ListeningEvent] = []
-    previous_identity: tuple[str, str] | None = None
+    previous_key: tuple[str, str] | None = None
     for event in events:
-        identity = _event_identity(event)
-        if identity == previous_identity:
+        collapse_key = _collapse_key(event)
+        if collapse_key is not None and collapse_key == previous_key:
             continue
         collapsed.append(event)
-        previous_identity = identity
+        previous_key = collapse_key
     return collapsed
 
 
@@ -46,7 +52,12 @@ def _retire_previous_current_event(session: Session, state: PlaybackState) -> No
     previous_event.is_paused = False
 
 
-def build_event_hash(user_id: int, parsed: ParsedWebhookEvent) -> str:
+def build_event_hash(user_id: int, parsed: ParsedWebhookEvent, received_at: datetime) -> str:
+    event_time_component = parsed.event_timestamp.isoformat() if parsed.event_timestamp else ""
+    if parsed.event_type == "scrobble" and not event_time_component:
+        # Some clients omit a track timestamp; use receipt time so repeated plays are not deduped forever.
+        event_time_component = received_at.isoformat()
+
     payload = "|".join(
         [
             str(user_id),
@@ -54,7 +65,7 @@ def build_event_hash(user_id: int, parsed: ParsedWebhookEvent) -> str:
             _normalized_text(parsed.artist),
             _normalized_text(parsed.track),
             _normalized_text(parsed.album),
-            parsed.event_timestamp.isoformat() if parsed.event_timestamp else "",
+            event_time_component,
             "1" if parsed.loved else "0",
             "1" if parsed.is_now_playing else "0",
             "1" if parsed.is_paused else "0",
@@ -115,7 +126,25 @@ def store_event(
     received_at: datetime,
     max_events: int,
 ) -> tuple[ListeningEvent, bool, PlaybackState | None]:
-    event_hash = build_event_hash(user.id, parsed)
+    # Skip storing paused events. Update state only if needed, don't save to DB.
+    if parsed.event_type == "paused":
+        state = get_or_create_state(session, user.id)
+        assert state is not None
+        # Still track paused state in playback but don't create event row.
+        state.is_paused = True
+        session.commit()
+        session.refresh(state)
+        # Return empty/placeholder event to avoid breaking webhook response.
+        placeholder = ListeningEvent(
+            event_hash="",
+            user_id=user.id,
+            event_type="paused",
+            artist="",
+            track="",
+        )
+        return placeholder, True, state
+
+    event_hash = build_event_hash(user.id, parsed, received_at)
     existing = session.scalar(
         select(ListeningEvent).where(
             ListeningEvent.user_id == user.id,
@@ -130,6 +159,49 @@ def store_event(
         session.commit()
         session.refresh(state)
         return existing, True, state
+
+    if parsed.event_type == "scrobble":
+        candidate_statement = (
+            select(ListeningEvent)
+            .where(
+                ListeningEvent.user_id == user.id,
+                ListeningEvent.event_type.in_(["played", "nowplaying", "resumedplaying"]),
+                ListeningEvent.artist == parsed.artist,
+                ListeningEvent.track == parsed.track,
+            )
+            .order_by(ListeningEvent.received_at.desc(), ListeningEvent.id.desc())
+            .limit(1)
+        )
+        if parsed.album:
+            candidate_statement = candidate_statement.where(ListeningEvent.album == parsed.album)
+        candidate = session.scalar(candidate_statement)
+        if candidate is not None:
+            candidate.event_hash = event_hash
+            candidate.event_type = "scrobble"
+            candidate.album = parsed.album
+            candidate.artwork_url = parsed.artwork_url
+            candidate.artist_url = parsed.artist_url
+            candidate.track_url = parsed.track_url
+            candidate.album_url = parsed.album_url
+            candidate.event_timestamp = parsed.event_timestamp
+            candidate.received_at = received_at
+            candidate.loved = parsed.loved or candidate.loved
+            candidate.is_now_playing = False
+            candidate.is_paused = False
+
+            state.last_event_id = candidate.id
+            if state.current_event_id == candidate.id:
+                state.status = "scrobble"
+                state.received_at = received_at
+                state.event_timestamp = parsed.event_timestamp
+                state.is_active = False
+                state.is_paused = False
+                state.loved = parsed.loved or state.loved
+
+            session.commit()
+            session.refresh(candidate)
+            session.refresh(state)
+            return candidate, True, state
 
     event = ListeningEvent(
         event_hash=event_hash,
@@ -205,6 +277,7 @@ def recent_events(
         select(ListeningEvent)
         .where(
             ListeningEvent.user_id == user_id,
+            ListeningEvent.event_type != "paused",
             ~(
                 (ListeningEvent.artist == "Unknown artist")
                 & (ListeningEvent.track == "Untitled track")
@@ -232,7 +305,10 @@ def history_events(
 ) -> list[dict]:
     statement = (
         select(ListeningEvent)
-        .where(ListeningEvent.user_id == user_id)
+        .where(
+            ListeningEvent.user_id == user_id,
+            ListeningEvent.event_type != "paused",
+        )
         .order_by(ListeningEvent.received_at.desc(), ListeningEvent.id.desc())
     )
     if event_type and event_type != "all":

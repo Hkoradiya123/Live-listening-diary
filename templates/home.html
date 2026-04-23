@@ -25,50 +25,7 @@
       </div>
 
       <div data-current-track>
-        {% if current_card %}
-          <article class="card current-card">
-            <div class="card-inner">
-              <div class="art">
-                <img src="{{ current_card.artwork_url }}" alt="{{ current_card.artist }} - {{ current_card.track }}">
-              </div>
-              <div class="card-copy">
-                <div class="meta-row">
-                  <span class="{{ current_card.badge_class }}">{{ current_card.badge_label }}</span>
-                  <span class="timestamp" title="{{ current_card.received_at_exact }}">{{ current_card.received_at_human }}</span>
-                </div>
-                <h2 class="track-title">
-                  {% if current_card.track_url %}<a href="{{ current_card.track_url }}" target="_blank" rel="noreferrer">{% endif %}
-                  {{ current_card.track }}
-                  {% if current_card.track_url %}</a>{% endif %}
-                </h2>
-                <p class="track-subtitle">
-                  {% if current_card.artist_url %}
-                    <a href="{{ current_card.artist_url }}" target="_blank" rel="noreferrer"><strong>{{ current_card.artist }}</strong></a>
-                  {% else %}
-                    <strong>{{ current_card.artist }}</strong>
-                  {% endif %}
-                  {% if current_card.album %}
-                    <span class="sep">&middot;</span>
-                    {% if current_card.album_url %}
-                      <a href="{{ current_card.album_url }}" target="_blank" rel="noreferrer">{{ current_card.album }}</a>
-                    {% else %}
-                      <span>{{ current_card.album }}</span>
-                    {% endif %}
-                  {% endif %}
-                </p>
-                <div class="track-links">
-                  {% if current_card.track_url %}<a class="link-chip" href="{{ current_card.track_url }}" target="_blank" rel="noreferrer">Track</a>{% endif %}
-                  {% if current_card.artist_url %}<a class="link-chip" href="{{ current_card.artist_url }}" target="_blank" rel="noreferrer">Artist</a>{% endif %}
-                  {% if current_card.album_url %}<a class="link-chip" href="{{ current_card.album_url }}" target="_blank" rel="noreferrer">Album</a>{% endif %}
-                </div>
-              </div>
-            </div>
-          </article>
-        {% else %}
-          <div class="empty-state">
-            No tracks received yet. Start playing music to populate the feed.
-          </div>
-        {% endif %}
+        <div class="empty-state">Loading latest track...</div>
       </div>
     </section>
 
@@ -76,49 +33,51 @@
       <div class="section-header">
         <div>
           <h2>Recent Tracks</h2>
-          <p>The latest three scrobbles on this account.</p>
+          <p>The latest three listening events on this account.</p>
         </div>
-        <a class="link-chip" href="/history?event=scrobble&limit=100">Open history</a>
+        <a class="link-chip" href="/history?event=all&limit=100">Open history</a>
       </div>
 
       <div class="track-list" data-recent-tracks>
-        {% if recent_tracks %}
-          {% for item in recent_tracks %}
-            <article class="track-row">
-              <div class="art">
-                <img src="{{ item.artwork_url }}" alt="{{ item.artist }} - {{ item.track }}" loading="lazy">
-              </div>
-              <div>
-                <div class="meta-row">
-                  <span class="{{ item.badge_class }}">{{ item.badge_label }}</span>
-                  <span class="timestamp" title="{{ item.received_at_exact }}">{{ item.received_at_human }}</span>
-                </div>
-                <h3 class="track-title">
-                  {% if item.track_url %}<a href="{{ item.track_url }}" target="_blank" rel="noreferrer">{% endif %}
-                  {{ item.track }}
-                  {% if item.track_url %}</a>{% endif %}
-                </h3>
-                <p class="track-subtitle">
-                  {% if item.artist_url %}
-                    <a href="{{ item.artist_url }}" target="_blank" rel="noreferrer"><strong>{{ item.artist }}</strong></a>
-                  {% else %}
-                    <strong>{{ item.artist }}</strong>
-                  {% endif %}
-                  {% if item.album %}
-                    <span class="sep">&middot;</span>
-                    {% if item.album_url %}
-                      <a href="{{ item.album_url }}" target="_blank" rel="noreferrer">{{ item.album }}</a>
-                    {% else %}
-                      <span>{{ item.album }}</span>
-                    {% endif %}
-                  {% endif %}
-                </p>
-              </div>
-            </article>
-          {% endfor %}
-        {% else %}
-          <div class="empty-state">No tracks received yet. Start playing music to populate the feed.</div>
-        {% endif %}
+        <article class="recent-track" aria-hidden="true">
+          <div class="art">
+            <svg viewBox="0 0 80 80" width="72" height="72" role="img" aria-label="Loading art">
+              <rect x="0" y="0" width="80" height="80" rx="10" fill="#1f2937"></rect>
+              <path d="M26 18v30.5a9.5 9.5 0 1 0 4 7.8V30.2l20-4.4v16.7a9.5 9.5 0 1 0 4 7.8V18z" fill="#94a3b8"></path>
+            </svg>
+          </div>
+          <div class="recent-main">
+            <div class="recent-meta"><span class="badge">Loading</span></div>
+            <h3 class="recent-title">Loading track...</h3>
+            <p class="recent-artist"><strong>Loading artist...</strong></p>
+          </div>
+        </article>
+        <article class="recent-track" aria-hidden="true">
+          <div class="art">
+            <svg viewBox="0 0 80 80" width="72" height="72" role="img" aria-label="Loading art">
+              <rect x="0" y="0" width="80" height="80" rx="10" fill="#1f2937"></rect>
+              <path d="M26 18v30.5a9.5 9.5 0 1 0 4 7.8V30.2l20-4.4v16.7a9.5 9.5 0 1 0 4 7.8V18z" fill="#94a3b8"></path>
+            </svg>
+          </div>
+          <div class="recent-main">
+            <div class="recent-meta"><span class="badge">Loading</span></div>
+            <h3 class="recent-title">Loading track...</h3>
+            <p class="recent-artist"><strong>Loading artist...</strong></p>
+          </div>
+        </article>
+        <article class="recent-track" aria-hidden="true">
+          <div class="art">
+            <svg viewBox="0 0 80 80" width="72" height="72" role="img" aria-label="Loading art">
+              <rect x="0" y="0" width="80" height="80" rx="10" fill="#1f2937"></rect>
+              <path d="M26 18v30.5a9.5 9.5 0 1 0 4 7.8V30.2l20-4.4v16.7a9.5 9.5 0 1 0 4 7.8V18z" fill="#94a3b8"></path>
+            </svg>
+          </div>
+          <div class="recent-main">
+            <div class="recent-meta"><span class="badge">Loading</span></div>
+            <h3 class="recent-title">Loading track...</h3>
+            <p class="recent-artist"><strong>Loading artist...</strong></p>
+          </div>
+        </article>
       </div>
     </section>
   </div>

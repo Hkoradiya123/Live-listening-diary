@@ -292,6 +292,26 @@ def create_app(
             **extra,
         )
 
+    def _recent_window(
+        session,
+        user_id: int,
+        *,
+        limit: int,
+        event_type: str = "all",
+        skip: int = 0,
+    ) -> list[dict]:
+        fetch_limit = max(1, limit + max(0, skip))
+        items = recent_events(
+            session,
+            user_id,
+            limit=fetch_limit,
+            timezone_name=settings.display_timezone,
+            event_type=event_type,
+        )
+        if skip <= 0:
+            return items[:limit]
+        return items[skip : skip + limit]
+
     def build_user_context(request: Request, session, user: UserAccount, title: str, description: str, active_page: str, **extra):
         if session is None:
             current = None
@@ -300,12 +320,12 @@ def create_app(
         else:
             try:
                 current = current_card(session, user.id, timezone_name=settings.display_timezone)
-                recent = recent_events(
+                recent = _recent_window(
                     session,
                     user.id,
-                    limit=settings.home_recent_limit,
-                    timezone_name=settings.display_timezone,
-                    event_type="scrobble",
+                    limit=3,
+                    event_type="all",
+                    skip=1,
                 )
                 stats = stats_summary(session, user.id, timezone_name=settings.display_timezone)
             except SQLAlchemyError as exc:
@@ -513,6 +533,7 @@ def create_app(
     def api_recent(
         request: Request,
         limit: int = Query(default=settings.api_recent_limit, ge=1, le=20),
+        skip: int = Query(default=0, ge=0, le=20),
         event: str = Query(default="all"),
         session=Depends(get_session),
     ):
@@ -528,15 +549,16 @@ def create_app(
             return JSONResponse(
                 {
                     "ok": True,
-                    "items": recent_events(
+                    "items": _recent_window(
                         session,
                         user.id,
                         limit=limit,
-                        timezone_name=settings.display_timezone,
                         event_type=event,
+                        skip=skip,
                     ),
                     "count": int(total_events),
                     "limit": limit,
+                    "skip": skip,
                     "event": event,
                 }
             )
@@ -573,7 +595,7 @@ def create_app(
                 },
                 "webhook_endpoint": f"{_absolute_base_url(request)}/api/webhook/{user.webhook_token}",
                 "public_api_endpoint": f"{_absolute_base_url(request)}/api/public/{user.webhook_token}",
-                "supported_events": ["nowplaying", "paused", "resumedplaying", "scrobble", "loved"],
+                "supported_events": ["nowplaying", "resumedplaying", "scrobble", "loved"],
                 "recent_count": int(session.scalar(select(func.count()).select_from(ListeningEvent).where(ListeningEvent.user_id == user.id)) or 0),
                 "now_playing": current_card(session, user.id, timezone_name=settings.display_timezone),
                 "stats": stats_summary(session, user.id, timezone_name=settings.display_timezone),
@@ -729,13 +751,28 @@ def create_app(
         if not user:
             return Response("Invalid token", status_code=404)
 
-        tracks = recent_events(
+        normalize = lambda value: (str(value or "").strip().lower())
+        current = current_card(session, user.id, timezone_name=settings.display_timezone)
+        current_artist = normalize(current.get("artist") if current else None)
+        current_track = normalize(current.get("track") if current else None)
+
+        recent_all = _recent_window(
             session,
             user.id,
-            limit=3,
-            timezone_name=settings.display_timezone,
-            event_type="scrobble"
+            limit=6,
+            event_type="all",
+            skip=0,
         )
+        tracks = [
+            item
+            for item in recent_all
+            if not (
+                current_artist
+                and current_track
+                and normalize(item.get("artist")) == current_artist
+                and normalize(item.get("track")) == current_track
+            )
+        ][:3]
 
         cards = ""
         x = 20

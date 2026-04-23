@@ -425,6 +425,84 @@
       gap: 0.8rem;
     }
 
+    .recent-track {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr) auto;
+      gap: 0.95rem;
+      align-items: center;
+      padding: 0.95rem;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background:
+        radial-gradient(circle at top right, rgba(125, 211, 252, 0.08), transparent 48%),
+        linear-gradient(180deg, rgba(10, 16, 32, 0.76), rgba(10, 16, 32, 0.92));
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .recent-track:hover {
+      transform: translateY(-1px);
+      border-color: rgba(125, 211, 252, 0.24);
+      background:
+        radial-gradient(circle at top right, rgba(125, 211, 252, 0.12), transparent 48%),
+        linear-gradient(180deg, rgba(12, 20, 38, 0.84), rgba(12, 20, 38, 0.98));
+    }
+
+    .recent-track .art {
+      border-radius: 16px;
+    }
+
+    .recent-main {
+      min-width: 0;
+      display: grid;
+      gap: 0.42rem;
+      align-content: center;
+    }
+
+    .recent-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.52rem;
+      flex-wrap: wrap;
+    }
+
+    .recent-title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      word-break: break-word;
+    }
+
+    .recent-artist {
+      margin: 0;
+      color: var(--text);
+      font-size: 0.95rem;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .recent-artist strong {
+      color: var(--text);
+      font-weight: 650;
+    }
+
+    .recent-album {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .recent-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
     .track-row {
       display: grid;
       grid-template-columns: 84px minmax(0, 1fr);
@@ -872,6 +950,16 @@
         grid-template-columns: 1fr;
       }
 
+      .recent-track {
+        grid-template-columns: 64px minmax(0, 1fr);
+      }
+
+      .recent-actions {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+        padding-top: 0.2rem;
+      }
+
       .header-shell {
         justify-content: flex-start;
       }
@@ -974,6 +1062,38 @@
         item.artist_url ? `<a class="link-chip" href="${escapeHtml(item.artist_url)}" target="_blank" rel="noreferrer">Artist</a>` : "",
         item.album_url ? `<a class="link-chip" href="${escapeHtml(item.album_url)}" target="_blank" rel="noreferrer">Album</a>` : ""
       ].filter(Boolean).join("");
+
+      if (compact) {
+        const titleHtml = item.track_url
+          ? `<a href="${escapeHtml(item.track_url)}" target="_blank" rel="noreferrer">${title}</a>`
+          : title;
+        const artistHtml = item.artist_url
+          ? `<a href="${escapeHtml(item.artist_url)}" target="_blank" rel="noreferrer"><strong>${artist}</strong></a>`
+          : `<strong>${artist}</strong>`;
+        const albumHtml = item.album
+          ? item.album_url
+            ? `<p class="recent-album">Album: <a href="${escapeHtml(item.album_url)}" target="_blank" rel="noreferrer">${escapeHtml(item.album)}</a></p>`
+            : `<p class="recent-album">Album: ${escapeHtml(item.album)}</p>`
+          : "";
+        return `
+          <article class="recent-track">
+            <div class="art">
+              <img src="${escapeHtml(art)}" alt="${artist} - ${title}" loading="lazy">
+            </div>
+            <div class="recent-main">
+              <div class="recent-meta">
+                ${badge}
+                <span class="timestamp" title="${escapeHtml(timestampExact)}">${escapeHtml(timestamp)}</span>
+              </div>
+              <h3 class="recent-title">${titleHtml}</h3>
+              <p class="recent-artist">${artistHtml}</p>
+              ${albumHtml}
+            </div>
+            ${links ? `<div class="recent-actions">${links}</div>` : ""}
+          </article>
+        `;
+      }
+
       const rowClass = compact ? "track-row" : "card current-card";
       const innerStart = compact ? "" : '<div class="card-inner">';
       const innerEnd = compact ? "" : "</div>";
@@ -1018,10 +1138,21 @@
       try {
         const [currentPayload, recentPayload] = await Promise.all([
           fetchJson("/api/now-playing"),
-          fetchJson("/api/recent?limit=3&event=scrobble"),
+          fetchJson("/api/recent?limit=6&event=all"),
         ]);
         const currentItem = currentPayload.item || null;
-        const recentItems = Array.isArray(recentPayload.items) ? recentPayload.items : [];
+        const normalize = (value) => String(value || "").trim().toLowerCase();
+        const currentArtist = normalize(currentItem && currentItem.artist);
+        const currentTrack = normalize(currentItem && currentItem.track);
+        const recentItems = (Array.isArray(recentPayload.items) ? recentPayload.items : [])
+          .filter((item) => {
+            if (!currentArtist || !currentTrack) return true;
+            return !(
+              normalize(item && item.artist) === currentArtist
+              && normalize(item && item.track) === currentTrack
+            );
+          })
+          .slice(0, 3);
         currentSlot.innerHTML = trackCardMarkup(currentItem, false);
         recentSlot.innerHTML = recentItems.length
           ? recentItems.map((item) => trackCardMarkup(item, true)).join("")

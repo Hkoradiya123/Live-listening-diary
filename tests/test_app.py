@@ -194,6 +194,31 @@ def test_history_collapses_consecutive_duplicate_tracks():
     assert history.text.count('class="track-row"') == 1
 
 
+def test_history_collapses_consecutive_duplicate_scrobbles():
+    client = build_client()
+    webhook_token = register_user(client, "alice@example.com", "password123", "Alice")
+
+    payload = {
+        "event": "scrobble",
+        "song": {
+            "artist": "Daft Punk",
+            "track": "Digital Love",
+            "album": "Discovery",
+        },
+    }
+
+    first = client.post(f"/api/webhook/{webhook_token}", json=payload)
+    second = client.post(f"/api/webhook/{webhook_token}", json=payload)
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["deduped"] is False
+    assert second.json()["deduped"] is False
+
+    history = client.get("/history?event=scrobble&limit=10")
+    assert history.status_code == 200
+    assert history.text.count('class="track-row"') == 1
+
+
 def test_accounts_are_isolated_from_each_other():
     app = create_app(
         database_url="sqlite+pysqlite:///:memory:",
