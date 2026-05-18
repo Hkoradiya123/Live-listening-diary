@@ -7,21 +7,8 @@ from .models import ListeningEvent, PlaybackState
 
 
 PLACEHOLDER_ART_URL = (
-    "data:image/svg+xml;charset=UTF-8,"
-    "%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='640' viewBox='0 0 640 640'%3E"
-    "%3Cdefs%3E"
-    "%3ClinearGradient id='g' x1='0%25' x2='100%25' y1='0%25' y2='100%25'%3E"
-    "%3Cstop offset='0%25' stop-color='%23151c35'/%3E"
-    "%3Cstop offset='100%25' stop-color='%23343d6f'/%3E"
-    "%3C/linearGradient%3E"
-    "%3C/defs%3E"
-    "%3Crect width='640' height='640' rx='72' fill='url(%23g)'/%3E"
-    "%3Ccircle cx='320' cy='320' r='180' fill='rgba(255,255,255,0.08)'/%3E"
-    "%3Cpath d='M280 190h120v28H280zM280 238h120v28H280zM280 286h120v28H280z' fill='%23b7c5ff' opacity='0.75'/%3E"
-    "%3Ccircle cx='242' cy='430' r='34' fill='%23e9efff'/%3E"
-    "%3Cpath d='M276 430V226h32v156c0 29-23 52-52 52s-52-23-52-52 23-52 52-52c8 0 16 2 22 5z' fill='%23e9efff'/%3E"
-    "%3Cpath d='M372 430V244h32v136c0 29-23 52-52 52s-52-23-52-52 23-52 52-52c8 0 16 2 22 5z' fill='%23e9efff'/%3E"
-    "%3C/svg%3E"
+    "data:image/svg+xml;base64,"
+    "PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc2NDAnIGhlaWdodD0nNjQwJyB2aWV3Qm94PScwIDAgNjQwIDY0MCc+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSdnJyB4MT0nMCUnIHgyPScxMDAlJyB5MT0nMCUnIHkyPScxMDAlJz48c3RvcCBvZmZzZXQ9JzAlJyBzdG9wLWNvbG9yPScjMTUxYzM1Jy8+PHN0b3Agb2Zmc2V0PScxMDAlJyBzdG9wLWNvbG9yPScjMzQzZDZmJy8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9JzY0MCcgaGVpZ2h0PSc2NDAnIHJ4PSc3MicgZmlsbD0ndXJsKCNnKScvPjxjaXJjbGUgY3g9JzMyMCcgY3k9JzMyMCcgcj0nMTgwJyBmaWxsPSdyZ2JhKDI1NSwyNTUsMjU1LDAuMDgpJy8+PHBhdGggZD0nTTI4MCAxOTBoMTIwdjI4SDI4MHpNMjgwIDIzOGgxMjB2MjhIMjgwek0yODAgMjg2aDEyMHYyOEgyODB6JyBmaWxsPScjYjdjNWZmJyBvcGFjaXR5PScwLjc1Jy8+PGNpcmNsZSBjeD0nMjQyJyBjeT0nNDMwJyByPSczNCcgZmlsbD0nI2U5ZWZmZicvPjxwYXRoIGQ9J00yNzYgNDMwVjIyNmgzMnYxNTZjMCAyOS0yMyA1Mi01MiA1MnMtNTItMjMtNTItNTIgMjMtNTIgNTItNTJjOCAwIDE2IDIgMjIgNXonIGZpbGw9JyNlOWVmZmYnLz48cGF0aCBkPSdNMzcyIDQzMFYyNDRoMzJ2MTM2YzAgMjktMjMgNTItNTIgNTJzLTUyLTIzLTUyLTUyIDIzLTUyIDUyLTUyYzggMCAxNiAyIDIyIDV6JyBmaWxsPScjZTllZmZmJy8+PC9zdmc+"
 )
 
 

@@ -1,0 +1,6 @@
+{
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "terminal.integrated.env.windows": {
+        "Path": "C:\\Users\\korad\\AppData\\Local\\Python\\pythoncore-3.14-64\\Scripts;C:\\Users\\korad\\AppData\\Local\\Python\\pythoncore-3.14-64;${env:Path}"
+    }
+}

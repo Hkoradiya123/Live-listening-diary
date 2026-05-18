@@ -3,6 +3,8 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import time
+from dataclasses import replace
 from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
@@ -41,6 +43,24 @@ import requests
 
 logger = logging.getLogger("uvicorn.error")
 load_dotenv()
+
+SVG_CACHE_TTL_SECONDS = 30
+SVG_CACHE: dict[str, tuple[float, str]] = {}
+
+
+def _svg_cache_get(key: str) -> str | None:
+    entry = SVG_CACHE.get(key)
+    if not entry:
+        return None
+    expires_at, svg = entry
+    if time.monotonic() > expires_at:
+        SVG_CACHE.pop(key, None)
+        return None
+    return svg
+
+
+def _svg_cache_set(key: str, svg: str) -> None:
+    SVG_CACHE[key] = (time.monotonic() + SVG_CACHE_TTL_SECONDS, svg)
 
 
 def _resolve_token(request: Request, path_token: str | None = None) -> str | None:
@@ -205,6 +225,46 @@ def _make_auth_context(request: Request, app_name: str, **extra) -> dict:
         "placeholder_art_url": PLACEHOLDER_ART_URL,
         **extra,
     }
+
+
+def _fetch_image_as_data_uri(url: str | None) -> str | None:
+    if not url:
+        return None
+    if isinstance(url, str) and url.startswith("data:image"):
+        return url
+    try:
+        response = requests.get(url, timeout=3)
+        if response.status_code == 200 and response.content:
+            content_type = response.headers.get("Content-Type", "image/jpeg").split(";", 1)[0]
+            encoded = base64.b64encode(response.content).decode("utf-8")
+            return f"data:{content_type};base64,{encoded}"
+    except Exception:
+        return None
+    return None
+
+
+def _inline_artwork(parsed):
+    data_uri = _fetch_image_as_data_uri(parsed.artwork_url)
+    if not data_uri or data_uri == parsed.artwork_url:
+        return parsed
+    return replace(parsed, artwork_url=data_uri)
+
+
+def _artwork_data_uri(value: str | None) -> str:
+    if value and value.startswith("data:image"):
+        return value
+    return PLACEHOLDER_ART_URL
+
+
+def _build_status_svg(message: str) -> str:
+    message_text = escape(message)
+    return (
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        "<svg width=\"450\" height=\"130\" viewBox=\"0 0 450 130\" xmlns=\"http://www.w3.org/2000/svg\">\n"
+        "<rect width=\"100%\" height=\"100%\" rx=\"18\" fill=\"#0f172a\"/>\n"
+        f"<text x=\"20\" y=\"70\" fill=\"#94a3b8\" font-size=\"16\">{message_text}</text>\n"
+        "</svg>"
+    )
 
 
 def create_app(
@@ -651,92 +711,83 @@ def create_app(
         except SQLAlchemyError as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Database error: {exc}") from exc
 
-    def get_base64_image(url: str | None) -> str:
-        if not url:
-            return PLACEHOLDER_ART_URL
-        if isinstance(url, str) and url.startswith("data:image"):
-            return url
-        try:
-            response = requests.get(url, timeout=3)
-            if response.status_code == 200 and response.content:
-                content_type = response.headers.get("Content-Type", "image/jpeg").split(";", 1)[0]
-                encoded = base64.b64encode(response.content).decode("utf-8")
-                return f"data:{content_type};base64,{encoded}"
-        except Exception:
-            pass
-        return PLACEHOLDER_ART_URL
-
-
     @app.get("/api/public/now-playing.svg/{token}")
     def now_playing_svg_public(token: str, session=Depends(get_session)):
-        if session is None:
-            return Response("Database not configured", status_code=503)
+        svg_headers = {
+            "Cache-Control": "public, max-age=30, s-maxage=30",
+            "Content-Type": "image/svg+xml; charset=utf-8",
+        }
+        try:
+            if session is None:
+                svg = _build_status_svg("Database not configured")
+                return Response(content=svg, media_type="image/svg+xml", headers=svg_headers, status_code=503)
 
-        # 🔐 token lookup (no cookies)
-        user = session.scalar(
-            select(UserAccount).where(UserAccount.webhook_token == token)
-        )
-        if user is None:
-            return Response("Invalid token", status_code=404)
+            cache_key = f"now-playing:{token}"
+            cached = _svg_cache_get(cache_key)
+            if cached:
+                return Response(content=cached, media_type="image/svg+xml", headers=svg_headers)
 
-        current = current_card(session, user.id, timezone_name=settings.display_timezone)
+            # 🔐 token lookup (no cookies)
+            user = session.scalar(
+                select(UserAccount).where(UserAccount.webhook_token == token)
+            )
+            if user is None:
+                svg = _build_status_svg("Invalid token")
+                return Response(content=svg, media_type="image/svg+xml", headers=svg_headers, status_code=404)
 
-        if not current:
-            svg = """
-            <svg width="450" height="130" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100%" height="100%" rx="18" fill="#0f172a"/>
-            <text x="20" y="70" fill="#94a3b8" font-size="16">🎧 Nothing playing</text>
+            current = current_card(session, user.id, timezone_name=settings.display_timezone)
+
+            if not current:
+                svg = _build_status_svg("Nothing playing")
+                _svg_cache_set(cache_key, svg)
+                return Response(content=svg, media_type="image/svg+xml", headers=svg_headers)
+
+            title = escape(str(current.get("track", "Unknown")))
+            artist = escape(str(current.get("artist", "Unknown")))
+            cover_url = _artwork_data_uri(current.get("artwork_url"))
+            track_url = current.get("track_url")
+
+            cover_attr = escape(cover_url, quote=True)
+
+            track_href = escape(str(track_url), quote=True) if track_url else ""
+            card_open = f'<a href="{track_href}">' if track_href else ""
+            card_close = "</a>" if track_href else ""
+
+            svg = f"""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <svg width="450" height="130" viewBox="0 0 450 130" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#0f172a"/>
+                <stop offset="100%" stop-color="#1e293b"/>
+                </linearGradient>
+            </defs>
+
+            <rect width="100%" height="100%" rx="18" fill="url(#bg)"/>
+
+            {card_open}
+            <!-- Cover -->
+            <image href="{cover_attr}" x="15" y="25" width="80" height="80" preserveAspectRatio="xMidYMid slice"/>
+
+            <!-- Text -->
+            <text x="110" y="50" fill="#22c55e" font-size="13">🎧 Now Playing</text>
+
+            <text x="110" y="75" fill="#ffffff" font-size="17" font-weight="bold">
+                {title}
+            </text>
+
+            <text x="110" y="100" fill="#94a3b8" font-size="14">
+                {artist}
+            </text>
+            {card_close}
             </svg>
-            """
-            return Response(content=svg, media_type="image/svg+xml")
-
-        title = escape(str(current.get("track", "Unknown")))
-        artist = escape(str(current.get("artist", "Unknown")))
-        cover_url = current.get("artwork_url")
-        track_url = current.get("track_url")
-
-        # 🔥 FIX: convert to base64 (GitHub-safe)
-        cover_b64 = get_base64_image(cover_url)
-        cover_attr = escape(cover_b64, quote=True)
-
-        track_href = escape(str(track_url), quote=True) if track_url else ""
-        card_open = f'<a href="{track_href}" target="_blank">' if track_href else ""
-        card_close = "</a>" if track_href else ""
-
-        svg = f"""
-        <svg width="450" height="130" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-            <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#0f172a"/>
-            <stop offset="100%" stop-color="#1e293b"/>
-            </linearGradient>
-        </defs>
-
-        <rect width="100%" height="100%" rx="18" fill="url(#bg)"/>
-
-        {card_open}
-        <!-- Cover -->
-        <image href="{cover_attr}" x="15" y="25" width="80" height="80" preserveAspectRatio="xMidYMid slice"/>
-
-        <!-- Text -->
-        <text x="110" y="50" fill="#22c55e" font-size="13">🎧 Now Playing</text>
-
-        <text x="110" y="75" fill="#ffffff" font-size="17" font-weight="bold">
-            {title}
-        </text>
-
-        <text x="110" y="100" fill="#94a3b8" font-size="14">
-            {artist}
-        </text>
-        {card_close}
-        </svg>
-            """
-
-        return Response(
-            content=svg,
-            media_type="image/svg+xml",
-            headers={"Cache-Control": "s-maxage=60"}
-        )
+                """
+            svg = svg.strip()
+            _svg_cache_set(cache_key, svg)
+            return Response(content=svg, media_type="image/svg+xml", headers=svg_headers)
+        except Exception:
+            svg = _build_status_svg("Playback unavailable")
+            return Response(content=svg, media_type="image/svg+xml", headers=svg_headers)
                 
                 
 
@@ -784,7 +835,7 @@ def create_app(
             time = t.get("received_at_human", "just now")
             track_url = t.get("track_url")
     
-            image_base64 = get_base64_image(image_url)
+            image_base64 = _artwork_data_uri(image_url)
             title_text = escape(str(title[:22]))
             artist_text = escape(str(artist[:22]))
             time_text = escape(str(time))
@@ -831,7 +882,8 @@ def create_app(
             x += 280
 
         svg = f"""
-        <svg width="900" height="160" xmlns="http://www.w3.org/2000/svg">
+        <?xml version="1.0" encoding="UTF-8"?>
+        <svg width="900" height="160" viewBox="0 0 900 160" xmlns="http://www.w3.org/2000/svg">
         <defs>
             <filter id="blur">
             <feGaussianBlur stdDeviation="12"/>
@@ -849,10 +901,12 @@ def create_app(
         </svg>
             """
 
+        svg = svg.strip()
+
         return Response(
             content=svg,
             media_type="image/svg+xml",
-            headers={"Cache-Control": "s-maxage=60"}
+            headers={"Cache-Control": "public, max-age=30, s-maxage=30", "Content-Type": "image/svg+xml; charset=utf-8"}
         )
     @app.get("/api/public/stats.svg/{token}")
     def stats_svg(token: str, session=Depends(get_session)):
@@ -900,6 +954,8 @@ def create_app(
             parsed = parse_webhook_payload(payload)
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+        parsed = _inline_artwork(parsed)
 
         # logger.info(
         #     "Webhook payload match report: %s",
