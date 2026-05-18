@@ -9,7 +9,7 @@ license: mit
 app_port: 7860
 ---
 
-# Live listening diary
+# Live listening diary 🎶
 
 Dark, responsive music-scrobbling dashboard for Web Scrobbler.
 
