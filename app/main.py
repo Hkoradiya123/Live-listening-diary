@@ -7,6 +7,7 @@ import time
 from dataclasses import replace
 from datetime import datetime, timezone
 from html import escape
+from io import BytesIO
 from pathlib import Path
 from urllib.parse import parse_qs
 
@@ -38,6 +39,7 @@ from .repository import (
     store_event,
 )
 from .utils import PLACEHOLDER_ART_URL, serialize_event, serialize_state
+from PIL import Image
 import requests
 
 
@@ -46,6 +48,7 @@ load_dotenv()
 
 SVG_CACHE_TTL_SECONDS = 30
 SVG_CACHE: dict[str, tuple[float, str]] = {}
+ARTWORK_SIZE = (96, 96)
 
 
 def _svg_cache_get(key: str) -> str | None:
@@ -235,9 +238,12 @@ def _fetch_image_as_data_uri(url: str | None) -> str | None:
     try:
         response = requests.get(url, timeout=3)
         if response.status_code == 200 and response.content:
-            content_type = response.headers.get("Content-Type", "image/jpeg").split(";", 1)[0]
-            encoded = base64.b64encode(response.content).decode("utf-8")
-            return f"data:{content_type};base64,{encoded}"
+            image = Image.open(BytesIO(response.content))
+            image = image.convert("RGB").resize(ARTWORK_SIZE, Image.LANCZOS)
+            output = BytesIO()
+            image.save(output, format="JPEG", quality=85, optimize=True)
+            encoded = base64.b64encode(output.getvalue()).decode("utf-8")
+            return f"data:image/jpeg;base64,{encoded}"
     except Exception:
         return None
     return None
